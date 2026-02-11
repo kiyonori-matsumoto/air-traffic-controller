@@ -40,11 +40,16 @@ export class Runway {
         // 簡易版: 閾値からの距離
         const distToThreshold = Math.sqrt(dx*dx + dy*dy);
         
-        // 距離が遠すぎる、または近すぎる判定
-        if (distToThreshold > 15 || distToThreshold < 0.2) return false;
+        // 距離が遠すぎる判定 (15NM以遠はキャプチャ不可)
+        if (distToThreshold > 15) return false;
 
-        // 3. 高度チェック (3000ft以下)
+        // 3. 高度チェック (4000ft以下、かつ3度パス以下であること)
         if (acAlt > 4000) return false;
+
+        // 3度パス (1NMあたり約318.44ft)
+        // 許容誤差を少し持たせる (+200ftくらいまでならキャプチャして修正させる？ ユーザー要望は「以下」)
+        const glideSlopeAlt = distToThreshold * 318.44;
+        if (acAlt > glideSlopeAlt + 100) return false; // 厳密すぎると使いにくいので+100ftの猶予
 
         // 4. ローカライザー（横ズレ）判定
         // ベクトル(dx, dy)と滑走路進入方位のなす角を計算

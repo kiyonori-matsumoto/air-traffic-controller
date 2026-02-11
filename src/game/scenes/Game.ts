@@ -130,7 +130,7 @@ export class Game extends Scene
 
         // UIイベント設定
         this.inputHeading.addEventListener('input', (e) => {
-            if (this.selectedAircraft) {
+            if (this.selectedAircraft && this.selectedAircraft.state === 'FLYING') {
                 const val = parseInt((e.target as HTMLInputElement).value);
                 this.selectedAircraft.targetHeading = val;
                 this.valHeading.innerText = val.toString().padStart(3, '0');
@@ -138,7 +138,7 @@ export class Game extends Scene
         });
 
         this.inputAltitude.addEventListener('input', (e) => {
-            if (this.selectedAircraft) {
+            if (this.selectedAircraft && this.selectedAircraft.state === 'FLYING') {
                 const val = parseInt((e.target as HTMLInputElement).value);
                 this.selectedAircraft.targetAltitude = val;
                 this.valAltitude.innerText = val.toString().padStart(5, '0');
@@ -146,7 +146,7 @@ export class Game extends Scene
         });
 
         this.inputSpeed.addEventListener('input', (e) => {
-            if (this.selectedAircraft) {
+            if (this.selectedAircraft && this.selectedAircraft.state === 'FLYING') {
                 const val = parseInt((e.target as HTMLInputElement).value);
                 this.selectedAircraft.targetSpeed = val;
                 this.valSpeed.innerText = val.toString().padStart(3, '0');
@@ -154,14 +154,14 @@ export class Game extends Scene
         });
 
         document.getElementById('btn-heading-left')?.addEventListener('click', () => {
-            if (this.selectedAircraft) {
+            if (this.selectedAircraft && this.selectedAircraft.state === 'FLYING') {
                 this.selectedAircraft.targetHeading = (this.selectedAircraft.targetHeading - 45 + 360) % 360;
                 this.updateSidebarValues();
             }
         });
 
         document.getElementById('btn-heading-right')?.addEventListener('click', () => {
-             if (this.selectedAircraft) {
+             if (this.selectedAircraft && this.selectedAircraft.state === 'FLYING') {
                 this.selectedAircraft.targetHeading = (this.selectedAircraft.targetHeading + 45) % 360;
                 this.updateSidebarValues();
             }
@@ -207,7 +207,7 @@ export class Game extends Scene
                     return;
             }
 
-            if (this.selectedAircraft) {
+            if (this.selectedAircraft && this.selectedAircraft.state === 'FLYING') {
                 switch (event.key) {
                     case 'ArrowLeft':
                         this.selectedAircraft.targetHeading -= 30;
@@ -240,6 +240,12 @@ export class Game extends Scene
 
         this.uiCallsign.innerText = ac.callsign;
         
+        // 制御可能かどうかでUIの状態を変更
+        const isControllable = ac.state === 'FLYING';
+        this.inputHeading.disabled = !isControllable;
+        this.inputAltitude.disabled = !isControllable;
+        this.inputSpeed.disabled = !isControllable;
+
         this.inputHeading.value = ac.targetHeading.toString();
         this.valHeading.innerText = ac.targetHeading.toString().padStart(3, '0');
 
