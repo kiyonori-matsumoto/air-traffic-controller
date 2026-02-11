@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/style.css">
+    <title>Phaser - Template</title>
+</head>
+
+<body>
+    <div id="app">
+        <div id="game-container"></div>
+        <div id="sidebar">
+            <div class="panel-header">
+                <h2>AIRCRAFT CONTROL</h2>
+                <span class="callsign" id="ui-callsign">---</span>
+            </div>
+
+            <div class="control-group">
+                <label>
+                    HEADING
+                    <span id="val-heading" class="value-display">000</span>
+                </label>
+                <input type="range" id="input-heading" min="0" max="359" value="0">
+                <div class="button-group">
+                    <button id="btn-heading-left">L</button>
+                    <button id="btn-heading-right">R</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>
+                    ALTITUDE
+                    <span id="val-altitude" class="value-display">00000</span>
+                </label>
+                <input type="range" id="input-altitude" min="0" max="40000" step="1000" value="0">
+            </div>
+
+            <div class="control-group">
+                <label>
+                    SPEED
+                    <span id="val-speed" class="value-display">000</span>
+                </label>
+                <input type="range" id="input-speed" min="0" max="600" step="10" value="0">
+            </div>
+        </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
