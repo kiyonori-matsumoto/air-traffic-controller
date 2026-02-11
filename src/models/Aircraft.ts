@@ -15,14 +15,16 @@ export class Aircraft {
     turnRate: number; /// 旋回率(deg/s)
     climbRate: number; /// 上昇・降下率(ft/s)
     acceleration: number; /// 加減速率(kt/s)
+    wakeTurbulence: string; /// 後方乱気流区分 (H/M/L)
 
-    constructor(callsign: string, x: number, y: number, speed: number, heading: number, altitude: number) {
+    constructor(callsign: string, x: number, y: number, speed: number, heading: number, altitude: number, wakeTurbulence: string = 'M') {
         this.callsign = callsign;
         this.x = x;
         this.y = y;
         this.speed = speed;
         this.heading = heading;
         this.altitude = altitude;
+        this.wakeTurbulence = wakeTurbulence;
         this.targetHeading = heading;
         this.targetAltitude = altitude;
         this.targetSpeed = speed;

@@ -6,38 +6,15 @@ interface AircraftEntity {
     visual: Phaser.GameObjects.Container;
     components: {
         highlight: Phaser.GameObjects.Shape;
+        dataText: Phaser.GameObjects.Text;
     };
 }
 
-// function createCompassRing(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
-//     const g = scene.add.graphics();
-//     const radius = 50; // リングの半径
-
-//     // 1. 円形の背景（うっすら見えるガイド）
-//     g.lineStyle(1, 0x00ff41, 0.2);
-//     g.strokeCircle(0, 0, radius);
-
-//     // 2. 目盛り（Ticks）の描画
-//     g.lineStyle(1, 0x00ff41, 0.5);
-//     for (let angle = 0; angle < 360; angle += 10) {
-//         const rad = Phaser.Math.DegToRad(angle - 90); // 0度が真上に来るように-90度調整
-//         const isMajor = angle % 30 === 0; // 30度ごとの長い目盛り
-//         const length = isMajor ? 8 : 4;
-        
-//         const x1 = Math.cos(rad) * radius;
-//         const y1 = Math.sin(rad) * radius;
-//         const x2 = Math.cos(rad) * (radius + length);
-//         const y2 = Math.sin(rad) * (radius + length);
-        
-//         g.lineBetween(x1, y1, x2, y2);
-//     }
-
-//     g.setVisible(false); // 初期状態は非表示
-//     return g;
-// }
+// ... (omitting compass ring comments)
 
 export class Game extends Scene
 {
+    // ... (properties)
     camera: Phaser.Cameras.Scene2D.Camera;
     background: Phaser.GameObjects.Image;
     msg_text : Phaser.GameObjects.Text;
@@ -63,16 +40,18 @@ export class Game extends Scene
     private createAircraftContainer(ac: Aircraft) {
         const container = this.add.container(0, 0);
         const dot = this.add.circle(0, 0, 3, 0x00ff41);
-        const text = this.add.text(10, -10, ac.callsign,{ fontSize: '12px', fontFamily: 'Monospace' });
+        const text = this.add.text(10, -12, ac.callsign,{ fontSize: '12px', fontFamily: 'Monospace', color: '#00ff41' });
+        const dataText = this.add.text(10, 0, '', { fontSize: '12px', fontFamily: 'Monospace', color: '#00ff41' });
         const highlightRing = this.add.circle(0, 0, 10);
         highlightRing.setStrokeStyle(0.8, 0x00ff41);
         highlightRing.setVisible(false);
-        container.add([dot, text, highlightRing]);
+        container.add([dot, text, dataText, highlightRing]);
 
-        return container;
+        return { container, dataText, highlightRing };
     }
 
     create () {
+        // ... (UI setup omitted, matches existing)
         // UI参照
         this.sidebar = document.getElementById('sidebar')!;
         this.uiCallsign = document.getElementById('ui-callsign')!;
@@ -124,13 +103,14 @@ export class Game extends Scene
 
 
         // テスト機
-        const a1 = new Aircraft("JAL123", 10, -10, 480, 180, 5000);
-        const a2 = new Aircraft("ANA456", -30, -20, 350, 90, 20000);
+        const a1 = new Aircraft("JAL123", 10, -10, 480, 180, 5000, 'H');
+        const a2 = new Aircraft("ANA456", -30, -20, 350, 90, 20000, 'M');
 
         [a1, a2].forEach(ac => {
-            const container = this.createAircraftContainer(ac);
+            const { container, dataText, highlightRing } = this.createAircraftContainer(ac);
             this.aircrafts.push({logic: ac, visual: container, components: {
-                highlight: container.getAt(2) as Phaser.GameObjects.Arc
+                highlight: highlightRing,
+                dataText: dataText
             }});
         });
 
@@ -216,6 +196,13 @@ export class Game extends Scene
         this.aircrafts.forEach(ac => {
             ac.logic.update(dt);
             ac.visual.setPosition(ac.logic.x * this.SCALE, - ac.logic.y * this.SCALE);
+            
+            // データブロック更新
+            const alt = Math.floor(ac.logic.altitude / 100).toString().padStart(3, '0');
+            const spd = Math.floor(ac.logic.speed / 10).toString().padStart(2, '0');
+            const wake = ac.logic.wakeTurbulence;
+            ac.components.dataText.setText(`${alt}${spd} ${wake}`);
+
             if (this.selectedAircraft === ac.logic) {
                 ac.components.highlight.setVisible(true);
             } else {
