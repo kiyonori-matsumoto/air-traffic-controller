@@ -16,6 +16,7 @@ export class Aircraft {
     climbRate: number; /// 上昇・降下率(ft/s)
     acceleration: number; /// 加減速率(kt/s)
     wakeTurbulence: string; /// 後方乱気流区分 (H/M/L)
+    separationStatus: 'NORMAL' | 'WARNING' | 'VIOLATION' = 'NORMAL';
 
     constructor(callsign: string, x: number, y: number, speed: number, heading: number, altitude: number, wakeTurbulence: string = 'M') {
         this.callsign = callsign;
@@ -33,8 +34,42 @@ export class Aircraft {
         this.acceleration = 1; // 約1kt/s
     }
 
+    // 距離計算 (NM)
+    distanceTo(other: Aircraft): number {
+        const dx = this.x - other.x;
+        const dy = this.y - other.y;
+        return Math.sqrt(dx*dx + dy*dy);
+    }
+
+    // 垂直距離計算 (ft)
+    verticalDistanceTo(other: Aircraft): number {
+        return Math.abs(this.altitude - other.altitude);
+    }
+
+    // セパレーション状態の更新
+    // 相手との距離から最も悪い状態を返す
+    checkSeparation(other: Aircraft): 'NORMAL' | 'WARNING' | 'VIOLATION' {
+        const dist = this.distanceTo(other); // NM
+        const vDist = this.verticalDistanceTo(other); // ft
+
+        // 垂直間隔が確保されていればOK (1000ft以上)
+        if (vDist >= 1000) {
+            return 'NORMAL';
+        }
+
+        // 垂直間隔がない場合、水平間隔をチェック
+        if (dist < 5) { // 5NM未満 = 違反
+            return 'VIOLATION';
+        } else if (dist < 8) { // 8NM未満 = 警告
+            return 'WARNING';
+        }
+
+        return 'NORMAL';
+    }
+
     // 毎フレームの計算 (dtは秒単位)
     update(dt: number) {
+        // ... (existing update logic)
 
          // 旋回チェック
          if (this.heading !== this.targetHeading) {

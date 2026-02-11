@@ -21,7 +21,6 @@ export class Game extends Scene
     private aircrafts: AircraftEntity[] = [];
     private readonly SCALE = 20; // 1px = 20NM
     private selectedAircraft: Aircraft | null = null;
-    private compassRing: Phaser.GameObjects.Graphics;
 
     private sidebar: HTMLElement;
     private uiCallsign: HTMLElement;
@@ -102,19 +101,10 @@ export class Game extends Scene
         });
 
 
-        // テスト機
-        const a1 = new Aircraft("JAL123", 10, -10, 480, 180, 5000, 'H');
-        const a2 = new Aircraft("ANA456", -30, -20, 350, 90, 20000, 'M');
-
-        [a1, a2].forEach(ac => {
-            const { container, dataText, highlightRing } = this.createAircraftContainer(ac);
-            this.aircrafts.push({logic: ac, visual: container, components: {
-                highlight: highlightRing,
-                dataText: dataText
-            }});
-        });
-
-        // this.compassRing = createCompassRing(this);
+        // 初期状態で10台程度スポーン
+        for (let i = 0; i < 10; i++) {
+            this.spawnAircraft();
+        }
 
         this.camera = this.cameras.main;
         this.camera.setBackgroundColor(0x0a0a0a);
@@ -191,23 +181,92 @@ export class Game extends Scene
         this.valSpeed.innerText = ac.targetSpeed.toString().padStart(3, '0');
     }
 
-    update(_time: number, delta: number) {
+    update(time: number, delta: number) {
         const dt = delta / 1000;
+
+        // 1. 各機体の更新
         this.aircrafts.forEach(ac => {
             ac.logic.update(dt);
             ac.visual.setPosition(ac.logic.x * this.SCALE, - ac.logic.y * this.SCALE);
-            
-            // データブロック更新
-            const alt = Math.floor(ac.logic.altitude / 100).toString().padStart(3, '0');
-            const spd = Math.floor(ac.logic.speed / 10).toString().padStart(2, '0');
-            const wake = ac.logic.wakeTurbulence;
-            ac.components.dataText.setText(`${alt}${spd} ${wake}`);
+            this.updateAircraftDisplay(ac);
 
             if (this.selectedAircraft === ac.logic) {
                 ac.components.highlight.setVisible(true);
             } else {
                 ac.components.highlight.setVisible(false);
             }
+        });
+
+        // 2. セパレーションチェックと警告表示
+        this.checkSeparations();
+
+        // 3. スポーン処理
+        this.handleSpawning(time);
+    }
+
+    private checkSeparations() {
+        for (let i = 0; i < this.aircrafts.length; i++) {
+            for (let j = i + 1; j < this.aircrafts.length; j++) {
+                const ac1 = this.aircrafts[i];
+                const ac2 = this.aircrafts[j];
+                
+                const status = ac1.logic.checkSeparation(ac2.logic);
+
+                if (status === 'VIOLATION') {
+                    ac1.components.dataText.setColor('#ff0000');
+                    ac2.components.dataText.setColor('#ff0000');
+                } else if (status === 'WARNING') {
+                    if (ac1.components.dataText.style.color !== '#ff0000') ac1.components.dataText.setColor('#ffff00');
+                    if (ac2.components.dataText.style.color !== '#ff0000') ac2.components.dataText.setColor('#ffff00');
+                }
+            }
+        }
+    }
+
+    private handleSpawning(time: number) {
+        if (time > this.lastSpawnTime + 20000) {
+            this.spawnAircraft();
+            this.lastSpawnTime = time;
+        }
+    }
+
+    private updateAircraftDisplay(ac: AircraftEntity) {
+        // データブロック更新 (高度100ft単位, 速度10kt単位)
+        const alt = Math.floor(ac.logic.altitude / 100).toString().padStart(3, '0');
+        const spd = Math.floor(ac.logic.speed / 10).toString().padStart(2, '0');
+        const wake = ac.logic.wakeTurbulence;
+        
+        ac.components.dataText.setText(`${alt} ${spd}${wake}`);
+
+        // デフォルトの色をセット (セパレーションチェックで上書きされる可能性あり)
+        ac.components.dataText.setColor('#00ff41');
+    }
+
+    private lastSpawnTime: number = 0;
+
+    private spawnAircraft() {
+        // ランダムな位置と方角
+        const isLeft = Math.random() > 0.5;
+        const x = isLeft ? -40 : 40;
+        const y = (Math.random() - 0.5) * 40; // -20 ~ 20
+        const heading = isLeft ? 90 : 270;
+        const altitude = 10000 + Math.floor(Math.random() * 20) * 1000; // 10000 ~ 30000
+        const speed = 300 + Math.floor(Math.random() * 20) * 10; // 300 ~ 500
+        const callsign = "JAL" + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        const wake = Math.random() > 0.8 ? 'H' : 'M';
+
+        const ac = new Aircraft(callsign, x, y, speed, heading, altitude, wake);
+        const { container, dataText, highlightRing } = this.createAircraftContainer(ac);
+        this.aircrafts.push({logic: ac, visual: container, components: {
+            highlight: highlightRing,
+            dataText: dataText
+        }});
+        
+        // インタラクション設定
+        container.setInteractive(new Phaser.Geom.Circle(0, 0, 20), Phaser.Geom.Circle.Contains);
+        container.on('pointerdown', () => {
+            console.log(`${ac.callsign} clicked`);
+            this.selectAircraft(ac);
         });
     }
 }
