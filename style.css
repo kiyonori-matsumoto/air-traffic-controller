@@ -25,13 +25,68 @@ body {
     height: 100%;
 }
 
-/* Sidebar Styles */
-#sidebar {
+/* Toolbar Style */
+#toolbar {
     position: absolute;
     top: 0;
     right: 0;
-    width: 300px;
-    height: 100%;
+    width: 280px;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.85);
+    border-left: 1px solid #333;
+    border-bottom: 1px solid #333;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+}
+
+.toolbar-group {
+    width: 100%;
+}
+
+.toolbar-group label {
+    display: block;
+    font-size: 10px;
+    color: #444;
+    margin-bottom: 5px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.speed-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.speed-btn {
+    flex: 1;
+    padding: 6px;
+    background: #111;
+    border: 1px solid #333;
+    color: #00ff41;
+    cursor: pointer;
+    font-family: 'Monospace', monospace;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.speed-btn:hover {
+    background: #222;
+}
+
+.speed-btn.active {
+    background: #00ff41;
+    color: #000;
+    border-color: #00ff41;
+    font-weight: bold;
+}
+
+#sidebar {
+    position: absolute;
+    top: 60px;
+    right: 0;
+    width: 280px;
+    height: calc(100% - 60px);
     background: var(--panel-bg);
     border-left: 1px solid var(--border-color);
     padding: 20px;

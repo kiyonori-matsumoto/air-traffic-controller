@@ -29,6 +29,7 @@ export class Game extends Scene
     
     private airport: Airport;
     private runwayVisuals: Phaser.GameObjects.Rectangle[] = [];
+    private timeScale: number = 1;
 
     private sidebar: HTMLElement;
     private uiCallsign: HTMLElement;
@@ -104,6 +105,17 @@ export class Game extends Scene
                 0x00ffff, 0.1
             );
             beam.setOrigin(0, 0);
+        });
+
+        // UI速度設定
+        const speedButtons = ['1', '2', '4'];
+        speedButtons.forEach(s => {
+            document.getElementById(`btn-speed-${s}`)?.addEventListener('click', () => {
+                this.timeScale = parseInt(s);
+                speedButtons.forEach(sb => {
+                    document.getElementById(`btn-speed-${sb}`)?.classList.toggle('active', sb === s);
+                });
+            });
         });
 
         // UI参照
@@ -239,7 +251,7 @@ export class Game extends Scene
     }
 
     update(time: number, delta: number) {
-        const dt = delta / 1000;
+        const dt = (delta / 1000) * this.timeScale;
 
         // 1. 各機体の更新
         this.aircrafts = this.aircrafts.filter(ac => {
@@ -259,66 +271,21 @@ export class Game extends Scene
             }
 
             // 着陸判定ロジック
-            return this.handleLandingLogic(ac);
+            const active = ac.logic.updateLanding(this.airport.runways);
+            if (!active) {
+                ac.visual.destroy();
+                ac.components.vectorLine.destroy();
+                ac.components.trailDots.forEach(d => d.destroy());
+                if (this.selectedAircraft === ac.logic) this.selectAircraft(null);
+            }
+            return active;
         });
 
         // 2. セパレーションチェックと警告表示
         this.checkSeparations();
 
         // 3. スポーン処理
-        this.handleSpawning(time);
-    }
-
-    private handleLandingLogic(ac: AircraftEntity): boolean {
-        const logic = ac.logic;
-
-        if (logic.state === 'FLYING') {
-            // ILSキャプチャ判定
-            for (const rwy of this.airport.runways) {
-                if (rwy.isAligned(logic.x, logic.y, logic.altitude, logic.heading)) {
-                    console.log(`${logic.callsign} captured ILS ${rwy.id}`);
-                    logic.state = 'LANDING';
-                    // 着陸コースへ自動誘導
-                    logic.targetHeading = rwy.heading;
-                    logic.targetAltitude = 0;
-                    logic.targetSpeed = 140; 
-                    return true;
-                }
-            }
-        } else if (logic.state === 'LANDING') {
-            // 滑走路端（閾値）との距離
-            // TODO: キャプチャした滑走路を保持するようにする。現在は最初の滑走路で判定
-            const rwy = this.airport.runways[0]; 
-            const dx = logic.x - rwy.x;
-            const dy = logic.y - rwy.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-
-            // 接地判定 (0.2NM = 約370m 以内かつ高度100ft以下)
-            if (dist < 0.2 && logic.altitude < 100) {
-                console.log(`${logic.callsign} landed!`);
-                logic.state = 'LANDED';
-                
-                // ビジュアルの除去
-                ac.visual.destroy();
-                ac.components.vectorLine.destroy();
-                ac.components.trailDots.forEach(d => d.destroy());
-                
-                if (this.selectedAircraft === logic) this.selectAircraft(null);
-                return false; // 配列から除去
-            }
-        }
-
-        // 画面外（遠く）へ去った場合の除去
-        const distFromCenter = Math.sqrt(logic.x*logic.x + logic.y*logic.y);
-        if (distFromCenter > 100) { // 100NM = 画面端より十分外
-            ac.visual.destroy();
-            ac.components.vectorLine.destroy();
-            ac.components.trailDots.forEach(d => d.destroy());
-            if (this.selectedAircraft === logic) this.selectAircraft(null);
-            return false;
-        }
-
-        return true;
+        // this.handleSpawning(time);
     }
 
     private checkSeparations() {

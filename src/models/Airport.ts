@@ -44,7 +44,7 @@ export class Runway {
         if (distToThreshold > 15 || distToThreshold < 0.2) return false;
 
         // 3. 高度チェック (3000ft以下)
-        if (acAlt > 3500) return false;
+        if (acAlt > 4000) return false;
 
         // 4. ローカライザー（横ズレ）判定
         // ベクトル(dx, dy)と滑走路進入方位のなす角を計算

@@ -1,3 +1,5 @@
+import { Runway } from "./Airport";
+
 export class Aircraft {
     // 単位: NM(海里), ft(フィート), kt(ノット), deg(度)
     
@@ -35,7 +37,7 @@ export class Aircraft {
         this.targetHeading = heading;
         this.targetAltitude = altitude;
         this.targetSpeed = speed;
-        this.turnRate = 3;
+        this.turnRate = 3; // 旋回率(deg/s)
         this.climbRate = 50; // 約3000ft/min
         this.acceleration = 1; // 約1kt/s
     }
@@ -141,5 +143,62 @@ export class Aircraft {
             }
             this.historyTimer = 0;
         }
+    }
+
+    /**
+     * 着陸ロジックの更新
+     * @param runways 
+     * @returns 引き続き radar に表示し続ける場合は true, 消去（着陸・離脱）する場合は false
+     */
+    updateLanding(runways: Runway[]): boolean {
+        if (this.state === 'FLYING') {
+            // ILSキャプチャ判定
+            for (const rwy of runways) {
+                if (rwy.isAligned(this.x, this.y, this.altitude, this.heading)) {
+                    console.log(`${this.callsign} captured ILS ${rwy.id}`);
+                    this.state = 'LANDING';
+                    this.targetSpeed = 140; 
+                    return true;
+                }
+            }
+        } else if (this.state === 'LANDING') {
+            // 現状は最初の滑走路で判定 (将来的に選択された滑走路を保持)
+            const rwy = runways[0]; 
+            const dx = this.x - rwy.x;
+            const dy = this.y - rwy.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+
+            // 1. Glide Slope (3度パス)
+            const idealAlt = Math.floor(dist * 318.44);
+            if (idealAlt > this.altitude) {
+                this.targetAltitude = this.altitude; 
+            } else {
+                this.targetAltitude = idealAlt; 
+            }
+
+            // 2. Localizer (横方向の整列)
+            const rwyRad = (90 - rwy.heading) * (Math.PI / 180);
+            const lateralOffset = -dx * Math.sin(rwyRad) + dy * Math.cos(rwyRad);
+            
+            // 横ズレを修正するターゲット方位を計算
+            // lateralOffsetがマイナス（右ズレ）なら、方位を減らす（左へ向ける）
+            const correction = lateralOffset * 40; 
+            this.targetHeading = (rwy.heading + correction + 360) % 360;
+
+            // 接地判定
+            if (dist < 0.3 && this.altitude < 150) {
+                console.log(`${this.callsign} landed!`);
+                this.state = 'LANDED';
+                return false; 
+            }
+        }
+
+        // 画面外（遠く）へ去った場合の除去
+        const distFromCenter = Math.sqrt(this.x*this.x + this.y * this.y);
+        if (distFromCenter > 100) {
+            return false;
+        }
+
+        return true;
     }
 }
