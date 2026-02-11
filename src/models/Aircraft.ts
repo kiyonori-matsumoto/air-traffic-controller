@@ -17,6 +17,12 @@ export class Aircraft {
     acceleration: number; /// 加減速率(kt/s)
     wakeTurbulence: string; /// 後方乱気流区分 (H/M/L)
     separationStatus: 'NORMAL' | 'WARNING' | 'VIOLATION' = 'NORMAL';
+    state: 'FLYING' | 'LANDING' | 'LANDED' = 'FLYING';
+    
+    // 航跡（トレール）用履歴
+    history: {x: number, y: number}[] = [];
+    private historyTimer: number = 0;
+    private readonly HISTORY_INTERVAL = 5; // 5秒ごとに記録
 
     constructor(callsign: string, x: number, y: number, speed: number, heading: number, altitude: number, wakeTurbulence: string = 'M') {
         this.callsign = callsign;
@@ -69,8 +75,8 @@ export class Aircraft {
 
     // 毎フレームの計算 (dtは秒単位)
     update(dt: number) {
-        // ... (existing update logic)
-
+        // 1. 移動・旋回ロジック (既存)
+        
          // 旋回チェック
          if (this.heading !== this.targetHeading) {
             const turnStep = this.turnRate * dt;
@@ -119,30 +125,21 @@ export class Aircraft {
             }
         }
 
-        // 1. 速度を秒速に変換 (kt / 3600)
-        // 1kt = 1NM/h
         const speedNMPerSec = this.speed / 3600;
-
-        // 2. 移動距離を計算 (NM)
         const distance = speedNMPerSec * dt;
-
-        // 3. 角度をラジアンに変換
-        // 元のロジック: 0度=下(y+), 90度=右(x+), 180度=上(y-), 270度=左(x-) ...?
-        // JAL123 init: heading 180.
-        // Screen usually: y increases downwards.
-        // If x+=sin(theta), y+=cos(theta).
-        // 0 -> x=0, y=1 (Down)
-        // 90 -> x=1, y=0 (Right)
-        // 180 -> x=0, y=-1 (Up)
-        // 270 -> x=-1, y=0 (Left)
-        // This matches standard mathematical angle if 0 is along Y axis pointing down? No.
-        // Standard math: 0 is Right (X+).
-        // Here: 0 is Down (Y+).
-        // It seems consistent within the game provided Heading 180 means Flying Up.
         const angleRad = this.heading * (Math.PI / 180);
 
-        // 4. X, Yを更新
         this.x += distance * Math.sin(angleRad);
         this.y += distance * Math.cos(angleRad);
+
+        // 2. 履歴（トレール）の更新
+        this.historyTimer += dt;
+        if (this.historyTimer >= this.HISTORY_INTERVAL) {
+            this.history.unshift({x: this.x, y: this.y});
+            if (this.history.length > 5) {
+                this.history.pop();
+            }
+            this.historyTimer = 0;
+        }
     }
 }

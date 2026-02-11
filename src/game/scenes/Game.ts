@@ -1,5 +1,6 @@
 import { Scene } from 'phaser';
 import { Aircraft } from '../../models/Aircraft';
+import { Airport, Runway } from '../../models/Airport';
 
 interface AircraftEntity {
     logic: Aircraft;
@@ -7,6 +8,8 @@ interface AircraftEntity {
     components: {
         highlight: Phaser.GameObjects.Shape;
         dataText: Phaser.GameObjects.Text;
+        vectorLine: Phaser.GameObjects.Line;
+        trailDots: Phaser.GameObjects.Arc[];
     };
 }
 
@@ -19,8 +22,13 @@ export class Game extends Scene
     background: Phaser.GameObjects.Image;
     msg_text : Phaser.GameObjects.Text;
     private aircrafts: AircraftEntity[] = [];
-    private readonly SCALE = 20; // 1px = 20NM
+    private readonly SCALE = 10; // 1px = 10NM
+    private readonly CX = 512;
+    private readonly CY = 384;
     private selectedAircraft: Aircraft | null = null;
+    
+    private airport: Airport;
+    private runwayVisuals: Phaser.GameObjects.Rectangle[] = [];
 
     private sidebar: HTMLElement;
     private uiCallsign: HTMLElement;
@@ -38,19 +46,66 @@ export class Game extends Scene
 
     private createAircraftContainer(ac: Aircraft) {
         const container = this.add.container(0, 0);
+
+        // 1. 航跡（トレール）ドット (ワールド座標で配置するためコンテナには入れない)
+        const trailDots: Phaser.GameObjects.Arc[] = [];
+        for (let i = 0; i < 5; i++) {
+            const dot = this.add.circle(0, 0, 1.5, 0x00ff41, 0.5 - i * 0.1);
+            dot.setVisible(false);
+            trailDots.push(dot);
+        }
+
+        // 2. 予測ベクトル線 (1分間) (これもコンテナ外)
+        const vectorLine = this.add.line(0, 0, 0, 0, 0, 0, 0x00ff41, 0.5);
+        vectorLine.setOrigin(0, 0);
+
+        // 3. 機体シンボルとテキスト
         const dot = this.add.circle(0, 0, 3, 0x00ff41);
         const text = this.add.text(10, -12, ac.callsign,{ fontSize: '12px', fontFamily: 'Monospace', color: '#00ff41' });
         const dataText = this.add.text(10, 0, '', { fontSize: '12px', fontFamily: 'Monospace', color: '#00ff41' });
         const highlightRing = this.add.circle(0, 0, 10);
         highlightRing.setStrokeStyle(0.8, 0x00ff41);
         highlightRing.setVisible(false);
+        
         container.add([dot, text, dataText, highlightRing]);
 
-        return { container, dataText, highlightRing };
+        return { container, dataText, highlightRing, vectorLine, trailDots };
     }
 
     create () {
-        // ... (UI setup omitted, matches existing)
+        // 空港・滑走路のセットアップ
+        // 羽田 34R (中心0,0付近として設定)
+        const rwy34R = new Runway('34R', 0, 0, 340, 1.5);
+        this.airport = new Airport('RJTT', [rwy34R]);
+
+        // 滑走路の描画
+        this.airport.runways.forEach(rwy => {
+            const sx = this.CX + (rwy.x * this.SCALE);
+            const sy = this.CY - (rwy.y * this.SCALE);
+            
+            // 1.5NM = 15px @ SCALE=10.
+            // 滑走路の向きに合わせて回転
+            const rect = this.add.rectangle(sx, sy, 4, rwy.length * this.SCALE, 0x444444);
+            rect.setAngle(rwy.heading);
+            this.runwayVisuals.push(rect);
+            
+            // 滑走路番号テキスト
+            this.add.text(sx, sy, rwy.id, { fontSize: '10px', color: '#ffffff' }).setOrigin(0.5);
+
+            // ILS ビーム（可視化）
+            // 15NM の範囲、角度 6度 (±3度)
+            const beamLength = 15 * this.SCALE;
+            const beamAngle = rwy.heading + 180; // 進入方向
+            const beam = this.add.triangle(
+                sx, sy,
+                0, 0,
+                Math.sin((beamAngle - 3) * Math.PI / 180) * beamLength, -Math.cos((beamAngle - 3) * Math.PI / 180) * beamLength,
+                Math.sin((beamAngle + 3) * Math.PI / 180) * beamLength, -Math.cos((beamAngle + 3) * Math.PI / 180) * beamLength,
+                0x00ffff, 0.1
+            );
+            beam.setOrigin(0, 0);
+        });
+
         // UI参照
         this.sidebar = document.getElementById('sidebar')!;
         this.uiCallsign = document.getElementById('ui-callsign')!;
@@ -101,9 +156,11 @@ export class Game extends Scene
         });
 
 
-        // 初期状態で10台程度スポーン
-        for (let i = 0; i < 10; i++) {
-            this.spawnAircraft();
+        // 初期状態で3台程度スポーン (画面内にランダム配置)
+        for (let i = 0; i < 3; i++) {
+            const rx = (Math.random() - 0.5) * 80; // -40 ~ 40 NM
+            const ry = (Math.random() - 0.5) * 60; // -30 ~ 30 NM
+            this.spawnAircraft(rx, ry);
         }
 
         this.camera = this.cameras.main;
@@ -185,9 +242,14 @@ export class Game extends Scene
         const dt = delta / 1000;
 
         // 1. 各機体の更新
-        this.aircrafts.forEach(ac => {
+        this.aircrafts = this.aircrafts.filter(ac => {
             ac.logic.update(dt);
-            ac.visual.setPosition(ac.logic.x * this.SCALE, - ac.logic.y * this.SCALE);
+            
+            // 座標変換: 中心 (CX, CY) からのオフセット
+            const sx = this.CX + (ac.logic.x * this.SCALE);
+            const sy = this.CY - (ac.logic.y * this.SCALE); // 北が Logic Y+
+
+            ac.visual.setPosition(sx, sy);
             this.updateAircraftDisplay(ac);
 
             if (this.selectedAircraft === ac.logic) {
@@ -195,6 +257,9 @@ export class Game extends Scene
             } else {
                 ac.components.highlight.setVisible(false);
             }
+
+            // 着陸判定ロジック
+            return this.handleLandingLogic(ac);
         });
 
         // 2. セパレーションチェックと警告表示
@@ -202,6 +267,58 @@ export class Game extends Scene
 
         // 3. スポーン処理
         this.handleSpawning(time);
+    }
+
+    private handleLandingLogic(ac: AircraftEntity): boolean {
+        const logic = ac.logic;
+
+        if (logic.state === 'FLYING') {
+            // ILSキャプチャ判定
+            for (const rwy of this.airport.runways) {
+                if (rwy.isAligned(logic.x, logic.y, logic.altitude, logic.heading)) {
+                    console.log(`${logic.callsign} captured ILS ${rwy.id}`);
+                    logic.state = 'LANDING';
+                    // 着陸コースへ自動誘導
+                    logic.targetHeading = rwy.heading;
+                    logic.targetAltitude = 0;
+                    logic.targetSpeed = 140; 
+                    return true;
+                }
+            }
+        } else if (logic.state === 'LANDING') {
+            // 滑走路端（閾値）との距離
+            // TODO: キャプチャした滑走路を保持するようにする。現在は最初の滑走路で判定
+            const rwy = this.airport.runways[0]; 
+            const dx = logic.x - rwy.x;
+            const dy = logic.y - rwy.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+
+            // 接地判定 (0.2NM = 約370m 以内かつ高度100ft以下)
+            if (dist < 0.2 && logic.altitude < 100) {
+                console.log(`${logic.callsign} landed!`);
+                logic.state = 'LANDED';
+                
+                // ビジュアルの除去
+                ac.visual.destroy();
+                ac.components.vectorLine.destroy();
+                ac.components.trailDots.forEach(d => d.destroy());
+                
+                if (this.selectedAircraft === logic) this.selectAircraft(null);
+                return false; // 配列から除去
+            }
+        }
+
+        // 画面外（遠く）へ去った場合の除去
+        const distFromCenter = Math.sqrt(logic.x*logic.x + logic.y*logic.y);
+        if (distFromCenter > 100) { // 100NM = 画面端より十分外
+            ac.visual.destroy();
+            ac.components.vectorLine.destroy();
+            ac.components.trailDots.forEach(d => d.destroy());
+            if (this.selectedAircraft === logic) this.selectAircraft(null);
+            return false;
+        }
+
+        return true;
     }
 
     private checkSeparations() {
@@ -213,14 +330,22 @@ export class Game extends Scene
                 const status = ac1.logic.checkSeparation(ac2.logic);
 
                 if (status === 'VIOLATION') {
-                    ac1.components.dataText.setColor('#ff0000');
-                    ac2.components.dataText.setColor('#ff0000');
+                    this.setAircraftColor(ac1, 0xff0000, '#ff0000');
+                    this.setAircraftColor(ac2, 0xff0000, '#ff0000');
                 } else if (status === 'WARNING') {
-                    if (ac1.components.dataText.style.color !== '#ff0000') ac1.components.dataText.setColor('#ffff00');
-                    if (ac2.components.dataText.style.color !== '#ff0000') ac2.components.dataText.setColor('#ffff00');
+                    if (ac1.components.dataText.style.color !== '#ff0000') this.setAircraftColor(ac1, 0xffff00, '#ffff00');
+                    if (ac2.components.dataText.style.color !== '#ff0000') this.setAircraftColor(ac2, 0xffff00, '#ffff00');
                 }
             }
         }
+    }
+
+    private setAircraftColor(ac: AircraftEntity, colorHex: number, colorStr: string) {
+        ac.components.dataText.setColor(colorStr);
+        ac.components.vectorLine.setStrokeStyle(1, colorHex, 0.5);
+        ac.components.trailDots.forEach((dot, i) => {
+            dot.setFillStyle(colorHex, 0.5 - i * 0.1);
+        });
     }
 
     private handleSpawning(time: number) {
@@ -231,35 +356,67 @@ export class Game extends Scene
     }
 
     private updateAircraftDisplay(ac: AircraftEntity) {
+        const logic = ac.logic;
+
         // データブロック更新 (高度100ft単位, 速度10kt単位)
-        const alt = Math.floor(ac.logic.altitude / 100).toString().padStart(3, '0');
-        const spd = Math.floor(ac.logic.speed / 10).toString().padStart(2, '0');
-        const wake = ac.logic.wakeTurbulence;
+        const alt = Math.floor(logic.altitude / 100).toString().padStart(3, '0');
+        const spd = Math.floor(logic.speed / 10).toString().padStart(2, '0');
+        const wake = logic.wakeTurbulence;
         
         ac.components.dataText.setText(`${alt} ${spd}${wake}`);
 
-        // デフォルトの色をセット (セパレーションチェックで上書きされる可能性あり)
-        ac.components.dataText.setColor('#00ff41');
+        // デフォルトの色
+        let color = 0x00ff41;
+        let colorStr = '#00ff41';
+        
+        ac.components.dataText.setColor(colorStr);
+
+        // 予測ベクトルの更新 (1分 = 60秒)
+        const speedNMPerMin = logic.speed / 60; // NM/min
+        const vectorLength = speedNMPerMin * this.SCALE;
+        const rad = logic.heading * (Math.PI / 180);
+        
+        const vx = Math.sin(rad) * vectorLength;
+        const vy = - Math.cos(rad) * vectorLength; // Y軸反転
+        
+        ac.components.vectorLine.setPosition(ac.visual.x, ac.visual.y);
+        ac.components.vectorLine.setTo(0, 0, vx, vy);
+        ac.components.vectorLine.setStrokeStyle(1, color, 0.5);
+
+        // 航跡（トレール）の更新
+        logic.history.forEach((pos, i) => {
+            if (i < ac.components.trailDots.length) {
+                const dot = ac.components.trailDots[i];
+                // 座標変換
+                const sx = this.CX + (pos.x * this.SCALE);
+                const sy = this.CY - (pos.y * this.SCALE);
+                dot.setPosition(sx, sy);
+                dot.setVisible(true);
+                dot.setFillStyle(color, 0.5 - i * 0.1);
+            }
+        });
     }
 
     private lastSpawnTime: number = 0;
 
-    private spawnAircraft() {
-        // ランダムな位置と方角
+    private spawnAircraft(spawnX?: number, spawnY?: number) {
+        // ランダムな位置と方角 (中心(0,0)からの相対座標)
         const isLeft = Math.random() > 0.5;
-        const x = isLeft ? -40 : 40;
-        const y = (Math.random() - 0.5) * 40; // -20 ~ 20
-        const heading = isLeft ? 90 : 270;
+        const x = spawnX !== undefined ? spawnX : (isLeft ? -60 : 60);
+        const y = spawnY !== undefined ? spawnY : (Math.random() - 0.5) * 60; // -30 ~ 30 NM
+        const heading = spawnX !== undefined ? Math.floor(Math.random() * 360) : (isLeft ? 90 + Math.floor((Math.random() - 0.5) * 60) : 270 + Math.floor((Math.random() - 0.5) * 60));
         const altitude = 10000 + Math.floor(Math.random() * 20) * 1000; // 10000 ~ 30000
         const speed = 300 + Math.floor(Math.random() * 20) * 10; // 300 ~ 500
         const callsign = "JAL" + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
         const wake = Math.random() > 0.8 ? 'H' : 'M';
 
         const ac = new Aircraft(callsign, x, y, speed, heading, altitude, wake);
-        const { container, dataText, highlightRing } = this.createAircraftContainer(ac);
+        const { container, dataText, highlightRing, vectorLine, trailDots } = this.createAircraftContainer(ac);
         this.aircrafts.push({logic: ac, visual: container, components: {
             highlight: highlightRing,
-            dataText: dataText
+            dataText: dataText,
+            vectorLine: vectorLine,
+            trailDots: trailDots
         }});
         
         // インタラクション設定
