@@ -9,8 +9,11 @@ interface AircraftEntity {
         highlight: Phaser.GameObjects.Shape;
         dataText: Phaser.GameObjects.Text;
         vectorLine: Phaser.GameObjects.Line;
+        leaderLine: Phaser.GameObjects.Line;
+        jRing: Phaser.GameObjects.Arc;
         trailDots: Phaser.GameObjects.Arc[];
     };
+    tagOffset: Phaser.Math.Vector2; // データタグの機体中心からのオフセット
 }
 
 // ... (omitting compass ring comments)
@@ -61,17 +64,35 @@ export class Game extends Scene
         const vectorLine = this.add.line(0, 0, 0, 0, 0, 0, 0x00ff41, 0.5);
         vectorLine.setOrigin(0, 0);
 
-        // 3. 機体シンボルとテキスト
+        // 3. Jリング (距離定規) 3NM (半径30px)
+        const jRing = this.add.circle(0, 0, 3 * this.SCALE);
+        jRing.setStrokeStyle(0.5, 0x00ff41, 0.3); // 薄い緑
+        jRing.setVisible(false); // 選択時のみ表示
+        // コンテナ外に配置 (機体に追従させるにはUpdateで位置更新が必要だが、今回は機体中心に配置したいのでコンテナ外だと面倒。コンテナ内に入れるか？)
+        // いや、コンテナ内だと回転してしまったりする可能性があるが、機体は回転しない(コンテナは回転しない)のでOK。
+        // ただし、vectorLine等はコンテナ外にある。統一感を出すならコンテナ外だが、追従コストを減らすならコンテナ内。
+        // ここでは実装を簡単にするためコンテナ外とし、Updateで同期する。
+        
+        // 4. 機体シンボルとテキスト
         const dot = this.add.circle(0, 0, 3, 0x00ff41);
+
+        // Leader Line (引き出し線)
+        // 機体中心(0,0)からデータブロック(10, 0)へ
+        const leaderLine = this.add.line(0, 0, 0, 0, 10, 0, 0x00ff41);
+        leaderLine.setOrigin(0, 0);
+
         const text = this.add.text(10, -12, ac.callsign,{ fontSize: '12px', fontFamily: 'Monospace', color: '#00ff41' });
         const dataText = this.add.text(10, 0, '', { fontSize: '12px', fontFamily: 'Monospace', color: '#00ff41' });
         const highlightRing = this.add.circle(0, 0, 10);
         highlightRing.setStrokeStyle(0.8, 0x00ff41);
         highlightRing.setVisible(false);
         
-        container.add([dot, text, dataText, highlightRing]);
+        // コンテナには相対座標で動かないものを入れる
+        container.add([dot, leaderLine, text, dataText, highlightRing]);
 
-        return { container, dataText, highlightRing, vectorLine, trailDots };
+        const tagOffset = new Phaser.Math.Vector2(20, -20); // 初期オフセット
+
+        return { container, dataText, highlightRing, vectorLine, trailDots, leaderLine, jRing, tagOffset };
     }
 
     create () {
@@ -329,6 +350,9 @@ export class Game extends Scene
     update(time: number, delta: number) {
         const dt = (delta / 1000) * this.timeScale;
 
+        // 0. データタグの重なり回避計算
+        this.resolveLabelOverlaps(delta);
+
         // 1. 各機体の更新
         this.aircrafts = this.aircrafts.filter(ac => {
             // ナビゲーション更新 (FLYING時のみ)
@@ -347,8 +371,10 @@ export class Game extends Scene
 
             if (this.selectedAircraft === ac.logic) {
                 ac.components.highlight.setVisible(true);
+                ac.components.jRing.setVisible(true); // 選択時Jリング表示
             } else {
                 ac.components.highlight.setVisible(false);
+                ac.components.jRing.setVisible(false);
             }
 
             // 着陸判定ロジック
@@ -356,6 +382,7 @@ export class Game extends Scene
             if (!active) {
                 ac.visual.destroy();
                 ac.components.vectorLine.destroy();
+                ac.components.jRing.destroy(); // Jリング削除
                 ac.components.trailDots.forEach(d => d.destroy());
                 if (this.selectedAircraft === ac.logic) this.selectAircraft(null);
             }
@@ -391,9 +418,64 @@ export class Game extends Scene
     private setAircraftColor(ac: AircraftEntity, colorHex: number, colorStr: string) {
         ac.components.dataText.setColor(colorStr);
         ac.components.vectorLine.setStrokeStyle(1, colorHex, 0.5);
+        ac.components.leaderLine.setStrokeStyle(1, colorHex); // Leader Lineの色変更
+        ac.components.jRing.setStrokeStyle(0.5, colorHex, 0.3); // J Ringの色変更
         ac.components.trailDots.forEach((dot, i) => {
             dot.setFillStyle(colorHex, 0.5 - i * 0.1);
         });
+    }
+
+    private resolveLabelOverlaps(delta: number) {
+        // 力学モデルによるタグ配置の調整
+        // 1. 本来の位置(右下)への引力
+        // 2. 他のタグからの斥力
+
+        const defaultOffset = new Phaser.Math.Vector2(20, -20);
+        const forceStrength = 0.5; // 反発力の強さ
+        const returnStrength = 0.05; // 元の位置に戻る力
+        const minDistance = 50; // タグ同士の最小距離 (w:50, h:30 程度と仮定)
+
+        // 力を計算して適用
+        for (let i = 0; i < this.aircrafts.length; i++) {
+            const ac1 = this.aircrafts[i];
+            const force = new Phaser.Math.Vector2(0, 0);
+
+            // 1. 引力（デフォルト位置に戻ろうとする力）
+            const distToDefault = defaultOffset.clone().subtract(ac1.tagOffset);
+            force.add(distToDefault.scale(returnStrength));
+
+            // 2. 斥力（他のタグとの重なり回避）
+            // 画面上の絶対座標で比較する
+            const p1 = new Phaser.Math.Vector2(ac1.visual.x + ac1.tagOffset.x, ac1.visual.y + ac1.tagOffset.y);
+
+            for (let j = 0; j < this.aircrafts.length; j++) {
+                if (i === j) continue;
+                const ac2 = this.aircrafts[j];
+                const p2 = new Phaser.Math.Vector2(ac2.visual.x + ac2.tagOffset.x, ac2.visual.y + ac2.tagOffset.y);
+
+                const diff = p1.clone().subtract(p2);
+                const dist = diff.length();
+
+                if (dist < minDistance) {
+                    // 近すぎる場合、反発させる
+                    // 距離が近いほど強く反発
+                    // 0除算回避
+                    if (dist < 0.1) diff.setTo(Math.random() - 0.5, Math.random() - 0.5).normalize();
+                    
+                    const repel = diff.normalize().scale((minDistance - dist) * forceStrength);
+                    force.add(repel);
+                }
+            }
+
+            // 力を適用 (移動)
+            ac1.tagOffset.add(force);
+
+            // オフセットの制限 (機体から離れすぎないように)
+            // 機体中心からの距離を制限
+            const len = ac1.tagOffset.length();
+            if (len < 20) ac1.tagOffset.setLength(20);
+            if (len > 80) ac1.tagOffset.setLength(80);
+        }
     }
 
     private handleSpawning(time: number) {
@@ -429,7 +511,37 @@ export class Game extends Scene
         
         ac.components.vectorLine.setPosition(ac.visual.x, ac.visual.y);
         ac.components.vectorLine.setTo(0, 0, vx, vy);
-        ac.components.vectorLine.setStrokeStyle(1, color, 0.5);
+        // リーダーライン、テキストの位置更新 (tagOffsetに従う)
+        const ox = ac.tagOffset.x;
+        const oy = ac.tagOffset.y;
+
+        ac.components.dataText.setPosition(ox, oy); // Callsignの下
+        // Callsign (text) は dataText の少し上
+        // createで text: (10, -12), dataText: (10, 0) としていた
+        // 相対関係を維持するか、単純に配置しなおす
+        // ここでは tagOffset を dataText の位置と定義し、Callsignはその上(-12)とする
+        
+        // コンテナ内のオブジェクトを取得して位置更新（componentsに参照がないので検索か、componentsに追加するほうが良いが）
+        // createAircraftContainerの実装を見ると:
+        // container.add([dot, leaderLine, text, dataText, highlightRing]);
+        // text は components にないが、動かす必要がある。
+        // 面倒なので components に text を追加するのが正攻法だが、ここでは visual.list から探すか、
+        // あるいは dataText と callsign をセットで動かすコンテナを作る手もある。
+        // 簡易的に text も取得できるようにインターフェース変えるのが早そうだが、
+        // 今回は container.list[2] が text とわかっている（脆いが）
+        
+        const callsignText = ac.visual.getAt(2) as Phaser.GameObjects.Text; 
+        if (callsignText) {
+            callsignText.setPosition(ox, oy - 12);
+        }
+
+        ac.components.leaderLine.setTo(0, 0, ox, oy); // 機体中心(0,0)からタグ(ox, oy)へ
+
+
+        // Jリング位置更新
+        ac.components.jRing.setPosition(ac.visual.x, ac.visual.y);
+        ac.components.jRing.setStrokeStyle(0.5, color, 0.3); // 色リセット(警告で変わってるかもしれないので)
+
 
         // 航跡（トレール）の更新
         logic.history.forEach((pos, i) => {
@@ -459,13 +571,15 @@ export class Game extends Scene
         const wake = Math.random() > 0.8 ? 'H' : 'M';
 
         const ac = new Aircraft(callsign, x, y, speed, heading, altitude, wake);
-        const { container, dataText, highlightRing, vectorLine, trailDots } = this.createAircraftContainer(ac);
+        const { container, dataText, highlightRing, vectorLine, trailDots, leaderLine, jRing, tagOffset } = this.createAircraftContainer(ac);
         this.aircrafts.push({logic: ac, visual: container, components: {
             highlight: highlightRing,
             dataText: dataText,
             vectorLine: vectorLine,
-            trailDots: trailDots
-        }});
+            trailDots: trailDots,
+            leaderLine: leaderLine,
+            jRing: jRing
+        }, tagOffset: tagOffset});
         
         // インタラクション設定
         container.setInteractive(new Phaser.Geom.Circle(0, 0, 20), Phaser.Geom.Circle.Contains);
