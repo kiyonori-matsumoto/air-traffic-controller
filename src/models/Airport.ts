@@ -67,12 +67,45 @@ export class Runway {
     }
 }
 
+export interface Waypoint {
+    name: string;
+    x: number; // NM
+    y: number; // NM
+    z?: number; // 指定高度 (ft)
+    speedLimit?: number; // 制限速度 (kt)
+}
+
 export class Airport {
     public name: string;
     public runways: Runway[];
+    public waypoints: Waypoint[] = [];
+    public stars: {[name: string]: string[]} = {}; // STAR名 -> Waypoint名のリスト
 
     constructor(name: string, runways: Runway[]) {
         this.name = name;
         this.runways = runways;
+
+        // Mock Data for RJTT
+        // Runway 34R (Hdg 340) -> Approach from 160 deg.
+        // ILS Beam Length = 15NM
+        // x = 15 * sin(160) = 5.13
+        // y = 15 * cos(160) = -14.10
+        // ILS高度チェックが4000ft以下なので、CAMYUは4000ftとする
+        this.waypoints = [
+            { name: 'KAIHO', x: 10, y: -20, z: 6000, speedLimit: 230 }, // 南東
+            { name: 'CAMYU', x: 5.13, y: -14.10, z: 4000, speedLimit: 210 },  // ILS Intercept Point (15NM)
+            { name: 'ADDUM', x: -10, y: -20}, // 南西
+            { name: 'DAIGO', x: 0, y: 15}     // 北 (Departure?)
+        ];
+
+        // Mock STAR
+        this.stars = {
+            'KAIHO ARRIVAL': ['KAIHO', 'CAMYU'],
+            'ADDUM ARRIVAL': ['ADDUM', 'KAIHO'],
+        };
+    }
+
+    getWaypoint(name: string): Waypoint | undefined {
+        return this.waypoints.find(wp => wp.name === name);
     }
 }

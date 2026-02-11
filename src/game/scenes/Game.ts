@@ -39,6 +39,7 @@ export class Game extends Scene
     private valAltitude: HTMLElement;
     private inputSpeed: HTMLInputElement;
     private valSpeed: HTMLElement;
+    private inputCommand: HTMLInputElement;
 
     constructor ()
     {
@@ -107,6 +108,16 @@ export class Game extends Scene
             beam.setOrigin(0, 0);
         });
 
+        // Waypointの描画
+        this.airport.waypoints.forEach(wp => {
+            const sx = this.CX + (wp.x * this.SCALE);
+            const sy = this.CY - (wp.y * this.SCALE);
+            
+            // 三角形 (Fix)
+            this.add.triangle(sx, sy, 0, -5, 4, 3, -4, 3, 0xaaaaaa).setOrigin(0, 0);
+            this.add.text(sx, sy + 5, wp.name, { fontSize: '10px', color: '#aaaaaa' }).setOrigin(0.5, 0);
+        });
+
         // UI速度設定
         const speedButtons = ['1', '2', '4'];
         speedButtons.forEach(s => {
@@ -127,6 +138,7 @@ export class Game extends Scene
         this.valAltitude = document.getElementById('val-altitude')!;
         this.inputSpeed = document.getElementById('input-speed') as HTMLInputElement;
         this.valSpeed = document.getElementById('val-speed')!;
+        this.inputCommand = document.getElementById('input-command') as HTMLInputElement;
 
         // UIイベント設定
         this.inputHeading.addEventListener('input', (e) => {
@@ -195,7 +207,17 @@ export class Game extends Scene
 
         this.input.on('pointerdown', (_pointer: Phaser.Input.Pointer, currentlyOver: any[]) => {
             if(currentlyOver.length === 0) {
-                this.selectAircraft(null);
+                // コマンド入力中は選択解除しない (フォーカス維持)
+                if (document.activeElement !== this.inputCommand) {
+                    this.selectAircraft(null);
+                }
+            }
+        });
+
+        this.inputCommand.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                this.handleCommand(this.inputCommand.value);
+                this.inputCommand.value = '';
             }
         });
 
@@ -254,6 +276,54 @@ export class Game extends Scene
 
         this.inputSpeed.value = ac.targetSpeed.toString();
         this.valSpeed.innerText = ac.targetSpeed.toString().padStart(3, '0');
+
+        this.inputCommand.value = ''; // Reset command input on select
+    }
+
+    private handleCommand(cmd: string) {
+        if (!this.selectedAircraft) return;
+        const ac = this.selectedAircraft;
+        const command = cmd.trim().toUpperCase();
+
+        // RESUME OWN NAVIGATION DIRECT [FIX]
+        // or DCT [FIX]
+        let fixName = '';
+        if (command.startsWith('RESUME OWN NAVIGATION DIRECT ')) {
+            fixName = command.replace('RESUME OWN NAVIGATION DIRECT ', '');
+        } else if (command.startsWith('DCT ')) {
+            fixName = command.replace('DCT ', '');
+        }
+
+        if (fixName) {
+            const startWp = this.airport.getWaypoint(fixName);
+            if (!startWp) {
+                console.log(`Waypoint ${fixName} not found.`);
+                return;
+            }
+
+            // フライトプラン構築
+            const newPlan = [startWp];
+            
+            // STAR検索: このFixを含むSTARがあれば、それ以降のポイントを追加
+            for (const starName in this.airport.stars) {
+                const route = this.airport.stars[starName];
+                const idx = route.indexOf(fixName);
+                if (idx !== -1) {
+                    // Fix以降のポイントを追加
+                    for (let i = idx + 1; i < route.length; i++) {
+                        const nextWpName = route[i];
+                        const nextWp = this.airport.getWaypoint(nextWpName);
+                        if (nextWp) newPlan.push(nextWp);
+                    }
+                    console.log(`Assigned STAR: ${starName}`);
+                    break; 
+                }
+            }
+
+            ac.flightPlan = newPlan;
+            ac.activeWaypoint = null; // リセットして再取得させる
+            console.log(`${ac.callsign} flight plan updated: ${newPlan.map(w=>w.name).join(' -> ')}`);
+        }
     }
 
     update(time: number, delta: number) {
@@ -261,6 +331,11 @@ export class Game extends Scene
 
         // 1. 各機体の更新
         this.aircrafts = this.aircrafts.filter(ac => {
+            // ナビゲーション更新 (FLYING時のみ)
+            if (ac.logic.state === 'FLYING') {
+                ac.logic.updateNavigation();
+            }
+            
             ac.logic.update(dt);
             
             // 座標変換: 中心 (CX, CY) からのオフセット

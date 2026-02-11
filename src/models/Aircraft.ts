@@ -1,4 +1,4 @@
-import { Runway } from "./Airport";
+import { Runway, Waypoint } from "./Airport";
 
 export class Aircraft {
     // 単位: NM(海里), ft(フィート), kt(ノット), deg(度)
@@ -142,6 +142,68 @@ export class Aircraft {
                 this.history.pop();
             }
             this.historyTimer = 0;
+        }
+    }
+
+    // フライトプラン (Waypointのキュー)
+    flightPlan: Waypoint[] = [];
+    activeWaypoint: Waypoint | null = null;
+
+    /**
+     * ナビゲーションロジックの更新 (Route Following)
+     */
+    updateNavigation() {
+        if (this.flightPlan.length === 0 && !this.activeWaypoint) return;
+
+        // 次のウェイポイント設定
+        if (!this.activeWaypoint && this.flightPlan.length > 0) {
+            this.activeWaypoint = this.flightPlan.shift()!;
+            console.log(`${this.callsign} proceeding direct to ${this.activeWaypoint.name}`);
+        }
+
+        if (this.activeWaypoint) {
+            const dx = this.activeWaypoint.x - this.x;
+            const dy = this.activeWaypoint.y - this.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+
+            // 方位計算 (ATC Heading: 北0, 時計回り)
+            // atan2(dy, dx) returns angle from X axis (East). 
+            // Math Heading needs transformation.
+            // 0 deg (North) -> (0, 1) in math (if Y up)? No, Y is up in Math. 
+            // In our system: Y is North? No. 
+            // Let's check coord system: 
+            // Game.ts: const sy = this.CY - (ac.logic.y * this.SCALE); // 北が Logic Y+
+            // So Y+ is North. X+ is East.
+            // Heading 0 = North (Y+). Heading 90 = East (X+).
+            // Math angle starts 0 at X+ and goes counter-clockwise.
+            // so Math 0 = East (H90). Math 90 = North (H0).
+            // Heading = 90 - MathDeg.
+            
+            const mathRad = Math.atan2(dy, dx);
+            const mathDeg = mathRad * 180 / Math.PI;
+            let targetH = 90 - mathDeg;
+            if (targetH < 0) targetH += 360;
+
+            this.targetHeading = targetH;
+
+            // 高度指定があれば適用
+            if (this.activeWaypoint.z !== undefined) {
+                this.targetAltitude = this.activeWaypoint.z;
+            }
+
+            // 速度制限があれば適用
+            if (this.activeWaypoint.speedLimit !== undefined) {
+                // 現在のターゲット速度が制限を超えていたら下げる
+                // または、強制的にその速度にする？ "上限"なので超えてなければそのままでいいが
+                // Route Flightとしては指定速度に合わせるのが一般的
+                this.targetSpeed = this.activeWaypoint.speedLimit;
+            }
+
+            // 到達判定 (1NM以内)
+            if (dist < 1.0) {
+                console.log(`${this.callsign} reached ${this.activeWaypoint.name}`);
+                this.activeWaypoint = null; // 次のフレームで次を取得
+            }
         }
     }
 
