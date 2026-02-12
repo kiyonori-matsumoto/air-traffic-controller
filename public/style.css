@@ -1,15 +1,340 @@
+:root {
+    /* Glassmorphism Theme Variables */
+    --bg-color: #050505;
+    --glass-bg: rgba(20, 25, 30, 0.75);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-blur: 16px;
+    --text-main: #e1e1e1;
+    --text-muted: #888888;
+
+    /* Radar Colors */
+    --radar-green: #00ff41;
+    --radar-dark-green: #004411;
+    --radar-alert: #ff2a2a;
+    --radar-warn: #ffcc00;
+
+    /* UI Spacing */
+    --panel-radius: 12px;
+    --spacing-md: 16px;
+}
+
 body {
     margin: 0;
-    padding: 0;
-    color: rgba(255, 255, 255, 0.87);
-    background-color: #0f0f0f;
+    overflow: hidden;
+    background-color: var(--bg-color);
+    font-family: 'Roboto Mono', 'Segoe UI', monospace;
+    /* Monospace for technical feel */
+    color: var(--text-main);
 }
 
 #app {
-    width: 100%;
+    width: 100vw;
     height: 100vh;
-    overflow: hidden;
+    position: relative;
+    background: radial-gradient(circle at center, #111 0%, #000 100%);
+}
+
+#game-container {
+    width: 100%;
+    height: 100%;
+}
+
+/* Glass Panel Utility */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--panel-radius);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Header / Status Bar */
+#top-bar {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    height: 40px;
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
+    padding: 0 20px;
+    pointer-events: none;
+    /* Let clicks pass through to map */
+}
+
+.logo-area {
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: var(--radar-green);
+    text-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+    pointer-events: auto;
+}
+
+/* Control Panel (Floating Right) */
+/* Formerly #sidebar */
+#control-panel {
+    position: absolute;
+    top: 80px;
+    right: 20px;
+    width: 300px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    transform: translateX(120%);
+    /* Hidden by default */
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+#control-panel.visible {
+    transform: translateX(0);
+}
+
+.panel-header {
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+    cursor: grab;
+    /* Indicate draggable */
+    user-select: none;
+}
+
+.panel-header:active {
+    cursor: grabbing;
+}
+
+.panel-header h2 {
+    margin: 0;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+}
+
+.callsign-display {
+    font-size: 2rem;
+    font-weight: 400;
+    color: var(--radar-green);
+    margin-top: 4px;
+    text-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+}
+
+/* Input Groups */
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.control-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+}
+
+.control-value {
+    color: var(--text-main);
+    font-weight: bold;
+}
+
+/* Custom Range Input */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    outline: none;
+    margin: 10px 0;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--radar-green);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.4);
+    transition: transform 0.1s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* Command Input */
+.cmd-input-wrapper {
+    position: relative;
+    margin-top: 10px;
+}
+
+#input-command {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    color: var(--radar-green);
+    padding: 12px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 1rem;
+    text-transform: uppercase;
+    border-radius: 6px;
+}
+
+#input-command:focus {
+    outline: none;
+    border-color: var(--radar-green);
+    background: rgba(0, 50, 20, 0.2);
+}
+
+/* Action Buttons */
+.action-btn {
+    width: 100%;
+    padding: 12px;
+    background: rgba(0, 255, 65, 0.1);
+    border: 1px solid var(--radar-green);
+    color: var(--radar-green);
+    font-family: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: var(--radar-green);
+    color: #000;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+}
+
+/* Speed Controls (Bottom Left) */
+#speed-controls {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    pointer-events: auto;
+}
+
+.speed-segment {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.speed-segment:first-child {
+    border-radius: 6px 0 0 6px;
+}
+
+.speed-segment:last-child {
+    border-radius: 0 6px 6px 0;
+}
+
+.speed-segment:not(:first-child):not(:last-child) {
+    border-right: none;
+}
+
+.speed-segment:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
+}
+
+.speed-segment.active {
+    background: var(--radar-green);
+    color: #000;
+    border-color: var(--radar-green);
+    font-weight: bold;
+}
+
+/* Communication Log Panel */
+#comm-log-panel {
+    position: absolute;
+    bottom: 80px;
+    left: 20px;
+    width: 320px;
+    height: 200px;
+    /* Default height */
+    min-height: 150px;
+    max-height: 60vh;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto;
+    resize: vertical;
+    /* Allow user to resize height */
+    overflow: hidden;
+    /* Required for resize handle in some browsers, also keeps logic clean */
+}
+
+#comm-messages {
+    flex: 1;
+    min-height: 0;
+    /* Critical for scrolling inside flex container */
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--text-main);
+
+    /* Scrollbar styling */
+    scrollbar-width: thin;
+    scrollbar-color: var(--glass-border) transparent;
+}
+
+#comm-messages::-webkit-scrollbar {
+    width: 4px;
+}
+
+#comm-messages::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 2px;
+}
+
+.msg {
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.msg.system {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-style: italic;
+    border-left: 2px solid var(--text-muted);
+    padding-left: 8px;
+}
+
+.msg.atc {
+    color: var(--radar-green);
+    font-weight: bold;
+}
+
+.msg.pilot {
+    color: #00ffff;
+    /* Cyan for pilots */
+}
+
+.msg .timestamp {
+    color: #555;
+    font-size: 0.7rem;
+    margin-right: 6px;
+}
+
+.msg .sender {
+    margin-right: 4px;
 }

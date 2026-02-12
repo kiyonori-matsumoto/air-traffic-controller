@@ -6,68 +6,79 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="/style.css">
-    <title>Phaser - Template</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <title>Radar Nexus: Live Control</title>
 </head>
 
 <body>
     <div id="app">
         <div id="game-container"></div>
-        <div id="toolbar">
-            <div class="toolbar-group">
-                <label>SPEED</label>
-                <div class="speed-buttons">
-                    <button id="btn-speed-1" class="speed-btn active">1x</button>
-                    <button id="btn-speed-2" class="speed-btn">2x</button>
-                    <button id="btn-speed-4" class="speed-btn">4x</button>
-                </div>
+
+        <!-- Top Interface -->
+        <div id="top-bar">
+            <div class="logo-area glass-panel" style="padding: 8px 16px;">
+                ROR | RADAR NEXUS
+            </div>
+            <div class="glass-panel" style="padding: 8px 16px; font-size: 0.8rem; color: #888;">
+                SYSTEM: NORMAL
             </div>
         </div>
-        <div id="sidebar">
+
+        <!-- Floating Control Panel (Replaces Sidebar) -->
+        <div id="control-panel" class="glass-panel">
             <div class="panel-header">
-                <h2>AIRCRAFT CONTROL</h2>
-                <span class="callsign" id="ui-callsign">---</span>
+                <h2>Tracking</h2>
+                <div class="callsign-display" id="ui-callsign">---</div>
             </div>
 
             <div class="control-group">
-                <label>
-                    HEADING
-                    <span id="val-heading" class="value-display">000</span>
-                </label>
-                <input type="range" id="input-heading" min="0" max="359" value="0">
-                <div class="button-group">
-                    <button id="btn-heading-left">L</button>
-                    <button id="btn-heading-right">R</button>
+                <div class="control-label">
+                    HEADING <span id="val-heading" class="control-value">360</span>
                 </div>
+                <input type="range" id="input-heading" min="0" max="359" value="0">
+                <!-- Removed L/R buttons for cleaner UI, rely on slider or keys -->
             </div>
 
             <div class="control-group">
-                <label>
-                    ALTITUDE
-                    <span id="val-altitude" class="value-display">00000</span>
-                </label>
+                <div class="control-label">
+                    ALTITUDE <span id="val-altitude" class="control-value">FL240</span>
+                </div>
                 <input type="range" id="input-altitude" min="0" max="40000" step="1000" value="0">
             </div>
 
             <div class="control-group">
-                <label>
-                    SPEED
-                    <span id="val-speed" class="value-display">000</span>
-                </label>
+                <div class="control-label">
+                    SPEED <span id="val-speed" class="control-value">250kt</span>
+                </div>
                 <input type="range" id="input-speed" min="0" max="600" step="10" value="0">
             </div>
 
-            <div class="control-group">
-                <label>COMMAND</label>
-                <input type="text" id="input-command" placeholder="DCT [FIX]..."
-                    style="width: 100%; box-sizing: border-box; background: #333; color: #fff; border: 1px solid #444; padding: 5px; font-family: monospace; text-transform: uppercase;">
+            <div class="cmd-input-wrapper">
+                <input type="text" id="input-command" placeholder="> COMM..." spellcheck="false" autocomplete="off">
             </div>
 
             <div class="control-group">
-                <button id="btn-contact-tower"
-                    style="width: 100%; background: #004400; color: #00ff41; border: 1px solid #00ff41; padding: 8px; cursor: pointer;">CONTACT
-                    TOWER</button>
+                <button id="btn-contact-tower" class="action-btn">HANDOFF TOWER</button>
             </div>
         </div>
+
+        <!-- Communication Log Panel (Bottom Left) -->
+        <div id="comm-log-panel" class="glass-panel">
+            <div class="panel-header" style="padding-bottom: 8px; margin-bottom: 8px;">
+                <h2>Freq: 124.70</h2>
+            </div>
+            <div id="comm-messages">
+                <div class="msg system">SYSTEM: Welcome to Radar Nexus</div>
+            </div>
+        </div>
+
+        <!-- Speed Controls (Bottom Left) -->
+        <div id="speed-controls" class="glass-panel" style="padding: 0;">
+            <button id="btn-speed-1" class="speed-segment active">1x</button>
+            <button id="btn-speed-2" class="speed-segment">2x</button>
+            <button id="btn-speed-4" class="speed-segment">4x</button>
+        </div>
+
     </div>
     <script type="module" src="/src/main.ts"></script>
 </body>
