@@ -24,8 +24,9 @@ export class CommandSystem {
             pendingUpdates: []
         };
 
-        let atcVoiceMsg = "";
-        let readbackMsg = "";
+        const logParts: string[] = [];
+        const voiceParts: string[] = [];
+        const readbackParts: string[] = [];
 
         // 1. Heading (Hxxx)
         const headingMatch = command.match(/H(\d{3})/);
@@ -37,10 +38,10 @@ export class CommandSystem {
                 ac.targetHeading = val;
             });
 
-            const msg = `${ac.callsign} turn left heading ${val}.`;
-            result.atcLog = msg; // Last log overwrites for now if multi-command
-            atcVoiceMsg += `${ac.callsign} turn left heading ${val}, `;
-            readbackMsg += `turn left heading ${val}, `;
+            const phrase = `turn left heading ${val}`;
+            logParts.push(phrase);
+            voiceParts.push(phrase);
+            readbackParts.push(phrase);
             result.handled = true;
         }
 
@@ -53,10 +54,10 @@ export class CommandSystem {
                 ac.targetSpeed = val;
             });
 
-            const msg = `${ac.callsign} reduce speed to ${val}.`;
-            if (!result.handled) result.atcLog = msg;
-            atcVoiceMsg += `reduce speed to ${val}, `;
-            readbackMsg += `reduce speed to ${val}, `;
+            const phrase = `reduce speed to ${val}`;
+            logParts.push(phrase);
+            voiceParts.push(phrase);
+            readbackParts.push(phrase);
             result.handled = true;
         }
 
@@ -69,10 +70,11 @@ export class CommandSystem {
                 ac.targetAltitude = val;
             });
 
-            const msg = `${ac.callsign} climb/descend maintain ${val}.`;
-            if (!result.handled) result.atcLog = msg;
-            atcVoiceMsg += `climb maintain ${val}, `;
-            readbackMsg += `maintain ${val}, `;
+            const phrase = `maintain ${val}`;
+            const voicePhrase = `climb maintain ${val}`;
+            logParts.push(voicePhrase);
+            voiceParts.push(voicePhrase);
+            readbackParts.push(phrase);
             result.handled = true;
         }
         
@@ -84,21 +86,12 @@ export class CommandSystem {
                 ac.targetAltitude = val;
             });
 
-            const msg = `${ac.callsign} climb/descend maintain flight level ${flMatch[1]}.`;
-            if (!result.handled) result.atcLog = msg;
-            atcVoiceMsg += `climb maintain flight level ${flMatch[1]}, `;
-            readbackMsg += `maintain flight level ${flMatch[1]}, `;
+            const phrase = `maintain flight level ${flMatch[1]}`;
+            const voicePhrase = `climb maintain flight level ${flMatch[1]}`;
+            logParts.push(voicePhrase);
+            voiceParts.push(voicePhrase);
+            readbackParts.push(phrase);
             result.handled = true;
-        }
-
-        if (result.handled) {
-            result.voiceLog = atcVoiceMsg;
-             // Clean up readback
-            if (readbackMsg) {
-                readbackMsg = readbackMsg.slice(0, -2); // remove trailing comma
-                result.pilotLog = `${readbackMsg}. ${ac.callsign}`;
-            }
-            return result;
         }
 
         // 4. Legacy / Special Commands
@@ -109,96 +102,104 @@ export class CommandSystem {
 
         if (fixName) {
             const startWp = this.airport.getWaypoint(fixName);
-            if (!startWp) {
-                // Not Handled
-                return result;
-            }
-
-            // Route Calculation
-            let routeName = '';
-            const newPlan = [startWp];
-
-            // STAR Check
-            for (const starName in this.airport.stars) {
-                const route = this.airport.stars[starName];
-                const idx = route.indexOf(fixName);
-                if (idx !== -1) {
-                    for (let i = idx + 1; i < route.length; i++) {
-                        const nextWpName = route[i];
-                        const nextWp = this.airport.getWaypoint(nextWpName);
-                        if (nextWp) newPlan.push(nextWp);
-                    }
-                    routeName = `${starName} arrival`;
-                    result.atcLog = `${ac.callsign} cleared via ${starName} arrival.`;
-                    atcVoiceMsg = `${ac.callsign} cleared via ${starName} arrival.`;
-                    result.pilotLog = `cleared via ${routeName}, ${ac.callsign}`;
-                    result.handled = true;
-                    break; 
-                }
-            }
+            // If not found, we just ignore for now or return unhandled if it's the only thing?
+            // Existing logic returned unhandled immediately. 
+            // Let's check: if we already handled H/S/A, do we return partial success?
+            // Ideally yes. But 'DCT' logic usually implies a specific route change that might override H.
+            // For now let's append if found.
             
-            if (!result.handled) {
-                // Direct To
-                result.atcLog = `${ac.callsign} proceed direct ${fixName}.`;
-                atcVoiceMsg = `${ac.callsign} proceed direct ${fixName}.`;
-                result.pilotLog = `direct ${fixName}, ${ac.callsign}`;
-                result.handled = true;
-            }
+            if (startWp) {
+                // Route Calculation
+                let routeName = '';
+                const newPlan = [startWp];
+                let applied = false;
 
-            if (result.handled) {
-                 result.voiceLog = atcVoiceMsg;
-                 result.pendingUpdates.push(() => {
+                // STAR Check
+                for (const starName in this.airport.stars) {
+                    const route = this.airport.stars[starName];
+                    const idx = route.indexOf(fixName);
+                    if (idx !== -1) {
+                        for (let i = idx + 1; i < route.length; i++) {
+                            const nextWpName = route[i];
+                            const nextWp = this.airport.getWaypoint(nextWpName);
+                            if (nextWp) newPlan.push(nextWp);
+                        }
+                        routeName = `${starName} arrival`;
+
+                        const phrase = `cleared via ${starName} arrival`;
+                        logParts.push(phrase);
+                        voiceParts.push(phrase);
+                        readbackParts.push(`cleared via ${routeName}`);
+                        
+                        applied = true;
+                        result.handled = true;
+                        break; 
+                    }
+                }
+                
+                if (!applied) {
+                    // Direct To
+                    const phrase = `proceed direct ${fixName}`;
+                    logParts.push(phrase);
+                    voiceParts.push(phrase);
+                    readbackParts.push(`direct ${fixName}`);
+                    result.handled = true;
+                }
+
+                result.pendingUpdates.push(() => {
                     ac.flightPlan = newPlan;
                     ac.activeWaypoint = null;
-                 });
-                 return result;
+                });
             }
         } 
         
         // 5. Contact Tower
         if (command === 'CONTACT TOWER' || command === 'CT') {
-             const msg = `${ac.callsign} contact tower 118.1. Good day.`;
-             result.atcLog = msg;
-             result.voiceLog = msg;
-             result.pilotLog = `contact tower 118.1, good day, ${ac.callsign}`;
+             const phrase = `contact tower 118.1. Good day`; // Period for log?
+             // "Contact tower 118.1 Good day"
+             const cleanPhrase = `contact tower 118.1 good day`;
+             logParts.push(cleanPhrase);
+             voiceParts.push(cleanPhrase);
+             readbackParts.push(`contact tower 118.1 good day`);
+             
              result.pendingUpdates.push(() => {
                  ac.ownership = 'HANDOFF_COMPLETE';
              });
              result.handled = true;
-             return result;
         }
 
         // 6. Radar Contact (Handoff Accept)
         if (command === 'RADAR CONTACT' || command === 'RC') {
             if (ac.ownership === 'HANDOFF_OFFERED') {
-                const msg = `${ac.callsign} radar contact.`;
-                result.atcLog = msg;
-                result.voiceLog = msg;
-                // Pilot doesn't usually readback "radar contact" in the same way, but acknowledgement is good.
-                // Or maybe just silence or "Roger".
-                // Let's have pilot say "Roger, [Callsign]" or just nothing?
-                // Realistically pilot checks in, ATC says radar contact. Pilot listens.
-                // User requirement said "add audio".
-                // Let's make pilot acknowledge.
-                result.pilotLog = `roger, ${ac.callsign}`; 
+                const phrase = `radar contact`;
+                logParts.push(phrase);
+                voiceParts.push(phrase);
+                readbackParts.push(`roger`);
 
                 result.pendingUpdates.push(() => {
                     ac.ownership = 'OWNED';
                 });
                 result.handled = true;
-                return result;
             } else {
-                 // Already owned or not offered?
-                 // If already owned, maybe just say it again?
-                 // If not offered (UNOWNED), we can't accept it.
                  if (ac.ownership === 'OWNED') {
                      result.atcLog = `${ac.callsign} already under control.`;
                  } else {
                      result.atcLog = `${ac.callsign} not offering handoff.`;
                  }
-                 // result.handled = true; // Mark as handled to avoid "Unknown command" but no action
+                 // Return early for this specific error case to show specific message
                  return result;
             }
+        }
+
+        // Final Assembly
+        if (result.handled) {
+            // Join parts
+            const logBody = logParts.join(', ');
+            result.atcLog = `${ac.callsign} ${logBody}.`;
+            result.voiceLog = `${ac.callsign}, ${logBody}.`; 
+            
+            const rbBody = readbackParts.join(', ');
+            result.pilotLog = `${rbBody}, ${ac.callsign}`;
         }
 
         return result;
