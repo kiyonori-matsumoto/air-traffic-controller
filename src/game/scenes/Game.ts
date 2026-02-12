@@ -348,6 +348,12 @@ export class Game extends Scene
             }
         });
 
+        document.getElementById('btn-contact-tower')?.addEventListener('click', () => {
+             if (this.selectedAircraft && this.selectedAircraft.state === 'LANDING') {
+                this.handleCommand('CONTACT TOWER');
+             }
+        });
+
         // キーボード入力で方位指示のテスト
         this.input.keyboard!.on('keydown', (event: KeyboardEvent) => {
             switch (event.key) {
@@ -374,6 +380,13 @@ export class Game extends Scene
     }
 
     private selectAircraft(ac: Aircraft | null) {
+        // Handoff Acceptance Logic
+        if (ac && ac.ownership === 'HANDOFF_OFFERED') {
+            ac.ownership = 'OWNED';
+            console.log(`${ac.callsign} Radar Contact (Handoff Accepted)`);
+            // TODO: Play sound?
+        }
+
         this.selectedAircraft = ac;
         if (ac) {
             this.sidebar.classList.add('visible');
@@ -390,7 +403,8 @@ export class Game extends Scene
         this.uiCallsign.innerText = ac.callsign;
         
         // 制御可能かどうかでUIの状態を変更
-        const isControllable = ac.state === 'FLYING';
+        // FLYINGかつ、OWNEDであること
+        const isControllable = ac.state === 'FLYING' && ac.ownership === 'OWNED';
         this.inputHeading.disabled = !isControllable;
         this.inputAltitude.disabled = !isControllable;
         this.inputSpeed.disabled = !isControllable;
@@ -450,7 +464,18 @@ export class Game extends Scene
             ac.flightPlan = newPlan;
             ac.activeWaypoint = null; // リセットして再取得させる
             console.log(`${ac.callsign} flight plan updated: ${newPlan.map(w=>w.name).join(' -> ')}`);
+        } else if (command === 'CONTACT TOWER' || command === 'CT') {
+            // Check conditions: Distance < 10NM and State == LANDING (ILS Captured)
+            const dist = Math.sqrt(ac.x*ac.x + ac.y*ac.y); // Distance from airport (center)
+            if (dist < 10 && ac.state === 'LANDING') {
+                ac.ownership = 'HANDOFF_COMPLETE';
+                console.log(`${ac.callsign} Contact Tower - Handoff Complete`);
+                this.selectAircraft(null); // Deselect
+            } else {
+                console.log(`${ac.callsign} Unable to contact tower (Dist: ${dist.toFixed(1)}NM, State: ${ac.state})`);
+            }
         }
+
     }
 
     update(time: number, delta: number) {
@@ -621,9 +646,31 @@ export class Game extends Scene
         ac.components.dataText.setText(`${alt} ${spd}${wake}`);
 
         // デフォルトの色
-        let color = 0x00ff41;
+        let color = 0x00ff41; // Default Bright Green
         let colorStr = '#00ff41';
         
+        // Ownershipによる色分け
+        switch (logic.ownership) {
+            case 'OWNED':
+                color = 0x00ff41; 
+                colorStr = '#00ff41'; 
+                break;
+            case 'HANDOFF_OFFERED':
+                color = 0xffff00; // Yellow
+                colorStr = '#ffff00';
+                break;
+            case 'UNOWNED':
+            case 'HANDOFF_COMPLETE':
+                color = 0x004400; // Dark Green
+                colorStr = '#004400';
+                break;
+        }
+
+        // Warning/Violation status overrides colors (if OWNED or HANDOFF_OFFERED)
+        // (Existing checkSeparation logic might override this later in the loop, or we handle it here)
+        // Currently checkSeparation calls setAircraftColor which overrides everything.
+        // So this base color is for normal state.
+
         ac.components.dataText.setColor(colorStr);
 
         // 予測ベクトルの更新 (1分 = 60秒)
@@ -659,10 +706,14 @@ export class Game extends Scene
         const callsignText = ac.visual.getAt(2) as Phaser.GameObjects.Text; 
         if (callsignText) {
             callsignText.setPosition(ox, oy - 12);
+            callsignText.setColor(colorStr); // Update callsign color
         }
 
         ac.components.leaderLine.setTo(0, 0, ox, oy); // 機体中心(0,0)からタグ(ox, oy)へ
+        ac.components.leaderLine.setStrokeStyle(1, color); // Update leader line color
 
+        // Update vector line color
+        ac.components.vectorLine.setStrokeStyle(1, color, 0.5);
 
         // Jリング位置更新
         ac.components.jRing.setPosition(ac.visual.x, ac.visual.y);
@@ -697,6 +748,10 @@ export class Game extends Scene
         const wake = Math.random() > 0.8 ? 'H' : 'M';
 
         const ac = new Aircraft(callsign, x, y, speed, heading, altitude, wake);
+        
+        // Initial ownership state: Arrivals spawn as HANDOFF_OFFERED
+        ac.ownership = 'HANDOFF_OFFERED';
+
         const { container, dataText, highlightRing, vectorLine, trailDots, leaderLine, jRing, tagOffset } = this.createAircraftContainer(ac);
         this.aircrafts.push({logic: ac, visual: container, components: {
             highlight: highlightRing,

@@ -106,3 +106,53 @@
   - 雨雲の強度（Level 1～6）に応じた領域表示。強い雨雲エリアは避けて誘導する必要があります。
 - **SIA（Status Information Area）**:
   - 画面の四隅のいずれかに、現在の空港情報（使用滑走路、風向風速、気圧設定QNH、ATISコード）を常時表示するエリア。
+
+---
+
+## 4. セクターハンドオフ実装案 (Sector Handoff Proposal)
+
+ユーザー要望に基づき、より具体的なセクター移管（ハンドオフ）の仕様案を策定しました。
+
+### 4.1 基本概念
+現在のゲームは「ターミナル・レーダー管制（Approach Control）」を模しています。プレイヤー（APP）は、上空の「航空路管制（ACC / Center）」や空港の「飛行場管制（TWR / Tower）」と連携して航空機を誘導します。
+
+### 4.2 フェーズごとのハンドオフ
+
+#### A. 到着機（Arrnial）: ACC → APP
+1.  **出現（Spawn）**: 管制空域の境界（Entry Point）に出現。
+    -   状態: `HANDOFF_OFFERED`（点滅または黄色）
+    -   データタグ: `H/O` 表示
+2.  **受領（Accept）**:
+    -   プレイヤー操作: 機体をクリックして「CONTACT ME」または「RADAR CONTACT」を選択。
+    -   状態: `OWNERSHIP`（白/緑など自機の標準色）に変化。
+    -   音声: "Tokyo Approach, JAL123 with you at 12000." -> "JAL123, Tokyo Approach, Radar Contact."
+
+#### B. 進入機（Approach）: APP → TWR
+1.  **条件**: ILS会合済み（Established）かつ滑走路まで10NM以内（FAF付近）。
+2.  **移管（Transfer）**:
+    -   プレイヤー操作: 「CONTACT TOWER」コマンドを実行。
+    -   状態: `HANDOFF_COMPLETE`（灰色または薄い緑）に変化し、操作不能になる。
+    -   音声: "JAL123, Contact Tower 118.1." -> "Switching 118.1, JAL123."
+    -   その後、TWRが「Cleared to Land」を出す演出（テキストログ等）が入るとベスト。
+
+#### C. 出発機（Departure）: TWR → APP
+1.  **離陸（Takeoff）**: TWR管轄で離陸・初期上昇。
+2.  **移管（Handoff）**:
+    -   高度1000ft通過時などに、自動またはTWRからのオファーで出現。
+    -   状態: `HANDOFF_OFFERED`
+3.  **受領（Accept）**:
+    -   プレイヤー操作: 「RADAR CONTACT」
+    -   状態: `OWNERSHIP`（操作可能になる）。
+    -   SIDに沿って上昇させる。
+
+#### D. 通過/退出機（Exit）: APP → ACC
+1.  **条件**: 管制空域の外縁（Exit Point）または規定高度（Allowable Alt）以上に到達。
+2.  **移管（Transfer）**:
+    -   プレイヤー操作: 「CONTACT TOKYO CONTROL」
+    -   状態: `HANDOFF_COMPLETE`（フェードアウト）。
+    -   スコア加算。
+
+### 4.3 UI/UX 実装案
+- **点滅表現**: ハンドオフが必要な機体のデータタグを点滅させる。
+- **専用ボタン**: 状況に応じて「Contact TWR」「Accept Handoff」ボタンをサイドバーに出現させる。
+- **セクター境界線**: VideoMapにセクター境界線を描画し、そこを越える前にハンドオフしないと減点、といったルールを追加。
