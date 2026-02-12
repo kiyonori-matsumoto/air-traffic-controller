@@ -1,6 +1,8 @@
 import { Scene } from 'phaser';
 import { Aircraft } from '../../models/Aircraft';
 import { Airport, Runway } from '../../models/Airport';
+import { Radar } from '../../models/Radar';
+
 
 interface AircraftEntity {
     logic: Aircraft;
@@ -31,7 +33,11 @@ export class Game extends Scene
     private selectedAircraft: Aircraft | null = null;
     
     private airport: Airport;
+    private radar: Radar; 
+    private radarBeam: Phaser.GameObjects.Line;
+
     private runwayVisuals: Phaser.GameObjects.Rectangle[] = [];
+
     private timeScale: number = 1;
 
     private sidebar: HTMLElement;
@@ -138,6 +144,12 @@ export class Game extends Scene
             this.add.triangle(sx, sy, 0, -5, 4, 3, -4, 3, 0xaaaaaa).setOrigin(0, 0);
             this.add.text(sx, sy + 5, wp.name, { fontSize: '10px', color: '#aaaaaa' }).setOrigin(0.5, 0);
         });
+
+        // Radar Initialization
+        this.radar = new Radar();
+        this.radarBeam = this.add.line(0, 0, 0, 0, 0, 0, 0x00ff00, 0.3);
+        this.radarBeam.setOrigin(0, 0);
+
 
         // UI速度設定
         const speedButtons = ['1', '2', '4'];
@@ -353,6 +365,24 @@ export class Game extends Scene
         // 0. データタグの重なり回避計算
         this.resolveLabelOverlaps(delta);
 
+        // 0.5 レーダー更新
+        const radarUpdate = this.radar.update(dt);
+        this.radar.scan(this.aircrafts.map(e => e.logic), radarUpdate.prevAngle, radarUpdate.currentAngle);
+
+        // レーダービーム描画更新
+        const beamLen = 1000; // 画面外まで
+        // sweepAngleは時計回り(0=North, 90=East)。
+        // PhaserのRotationは 0=East, 90=South (Clockwise)
+        // North(0) -> -90 (Phaser)
+        // East(90) -> 0 (Phaser)
+        // South(180) -> 90 (Phaser)
+        // LogicAngle to PhaserAngle:  (Logic - 90)
+        const beamRad = (this.radar.sweepAngle - 90) * (Math.PI / 180);
+        
+        this.radarBeam.setPosition(this.CX, this.CY);
+        this.radarBeam.setTo(0, 0, Math.cos(beamRad) * beamLen, Math.sin(beamRad) * beamLen);
+        this.radarBeam.setStrokeStyle(2, 0x004400, 0.5); // 暗い緑
+
         // 1. 各機体の更新
         this.aircrafts = this.aircrafts.filter(ac => {
             // ナビゲーション更新 (FLYING時のみ)
@@ -363,8 +393,9 @@ export class Game extends Scene
             ac.logic.update(dt);
             
             // 座標変換: 中心 (CX, CY) からのオフセット
-            const sx = this.CX + (ac.logic.x * this.SCALE);
-            const sy = this.CY - (ac.logic.y * this.SCALE); // 北が Logic Y+
+            // 表示にはレーダー計測位置 (measuredX, measuredY) を使用
+            const sx = this.CX + (ac.logic.measuredX * this.SCALE);
+            const sy = this.CY - (ac.logic.measuredY * this.SCALE); // 北が Logic Y+
 
             ac.visual.setPosition(sx, sy);
             this.updateAircraftDisplay(ac);
@@ -502,9 +533,10 @@ export class Game extends Scene
         ac.components.dataText.setColor(colorStr);
 
         // 予測ベクトルの更新 (1分 = 60秒)
-        const speedNMPerMin = logic.speed / 60; // NM/min
+        // 表示用データもレーダー更新時のものを使用する
+        const speedNMPerMin = logic.measuredSpeed / 60; // NM/min
         const vectorLength = speedNMPerMin * this.SCALE;
-        const rad = logic.heading * (Math.PI / 180);
+        const rad = logic.measuredHeading * (Math.PI / 180);
         
         const vx = Math.sin(rad) * vectorLength;
         const vy = - Math.cos(rad) * vectorLength; // Y軸反転

@@ -10,6 +10,13 @@ export class Aircraft {
     heading: number; /// 方角(deg)
     altitude: number; /// 高度(ft)
 
+    // レーダー計測位置 (表示用)
+    measuredX: number;
+    measuredY: number;
+    measuredHeading: number;
+    measuredSpeed: number;
+
+
     targetHeading: number; /// 目標方角(deg)
     targetAltitude: number; /// 目標高度(ft)
     targetSpeed: number; /// 目標速度(kt)
@@ -23,8 +30,7 @@ export class Aircraft {
     
     // 航跡（トレール）用履歴
     history: {x: number, y: number}[] = [];
-    private historyTimer: number = 0;
-    private readonly HISTORY_INTERVAL = 5; // 5秒ごとに記録
+
 
     constructor(callsign: string, x: number, y: number, speed: number, heading: number, altitude: number, wakeTurbulence: string = 'M') {
         this.callsign = callsign;
@@ -40,6 +46,12 @@ export class Aircraft {
         this.turnRate = 3; // 旋回率(deg/s)
         this.climbRate = 50; // 約3000ft/min
         this.acceleration = 1; // 約1kt/s
+        
+        // 初期状態では計測位置＝真の位置とする
+        this.measuredX = x;
+        this.measuredY = y;
+        this.measuredHeading = heading;
+        this.measuredSpeed = speed;
     }
 
     // 距離計算 (NM)
@@ -134,16 +146,26 @@ export class Aircraft {
         this.x += distance * Math.sin(angleRad);
         this.y += distance * Math.cos(angleRad);
 
-        // 2. 履歴（トレール）の更新
-        this.historyTimer += dt;
-        if (this.historyTimer >= this.HISTORY_INTERVAL) {
-            this.history.unshift({x: this.x, y: this.y});
-            if (this.history.length > 5) {
-                this.history.pop();
-            }
-            this.historyTimer = 0;
+    }
+
+    /**
+     * レーダースキャン時に呼び出される更新処理
+     */
+    onRadarScan() {
+        // 計測位置を更新 (Visual Update)
+        this.measuredX = this.x;
+        this.measuredY = this.y;
+        this.measuredHeading = this.heading;
+        this.measuredSpeed = this.speed;
+
+        // 履歴に追加
+        this.history.unshift({x: this.measuredX, y: this.measuredY});
+        if (this.history.length > 5) {
+            this.history.pop();
         }
     }
+
+
 
     // フライトプラン (Waypointのキュー)
     flightPlan: Waypoint[] = [];
