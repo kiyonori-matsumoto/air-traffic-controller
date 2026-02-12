@@ -24,51 +24,45 @@
             </div>
         </div>
 
-        <!-- Floating Control Panel (Replaces Sidebar) -->
-        <div id="control-panel" class="glass-panel">
-            <div class="panel-header">
-                <h2>Tracking</h2>
-                <div class="callsign-display" id="ui-callsign">---</div>
-            </div>
+        <!-- Help Button -->
+        <button id="btn-help" class="glass-panel"
+            style="position: absolute; top: 20px; right: 20px; padding: 8px 16px; cursor: pointer; color: #e1e1e1; background: rgba(50,50,50,0.5);">
+            ?
+        </button>
 
-            <div class="control-group">
-                <div class="control-label">
-                    HEADING <span id="val-heading" class="control-value">360</span>
-                </div>
-                <input type="range" id="input-heading" min="0" max="359" value="0">
-                <!-- Removed L/R buttons for cleaner UI, rely on slider or keys -->
-            </div>
-
-            <div class="control-group">
-                <div class="control-label">
-                    ALTITUDE <span id="val-altitude" class="control-value">FL240</span>
-                </div>
-                <input type="range" id="input-altitude" min="0" max="40000" step="1000" value="0">
-            </div>
-
-            <div class="control-group">
-                <div class="control-label">
-                    SPEED <span id="val-speed" class="control-value">250kt</span>
-                </div>
-                <input type="range" id="input-speed" min="0" max="600" step="10" value="0">
-            </div>
-
-            <div class="cmd-input-wrapper">
-                <input type="text" id="input-command" placeholder="> COMM..." spellcheck="false" autocomplete="off">
-            </div>
-
-            <div class="control-group">
-                <button id="btn-contact-tower" class="action-btn">HANDOFF TOWER</button>
-            </div>
+        <!-- Command Input (Bottom Center/Right) -->
+        <div id="cmd-container" class="glass-panel"
+            style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 400px; padding: 10px;">
+            <input type="text" id="input-command" placeholder="> ENTER COMMAND..." spellcheck="false" autocomplete="off"
+                style="width: 100%; background: transparent; border: none; color: #00ff41; font-family: monospace; font-size: 1.1rem; outline: none;">
         </div>
 
-        <!-- Communication Log Panel (Bottom Left) -->
-        <div id="comm-log-panel" class="glass-panel">
+        <!-- Communication Log Panel (Right Side) -->
+        <div id="comm-log-panel" class="glass-panel"
+            style="position: absolute; top: 80px; right: 20px; bottom: 100px; width: 300px; display: flex; flex-direction: column; pointer-events: auto;">
             <div class="panel-header" style="padding-bottom: 8px; margin-bottom: 8px;">
-                <h2>Freq: 124.70</h2>
+                <h2>COMMUNICATION LOG</h2>
             </div>
             <div id="comm-messages">
                 <div class="msg system">SYSTEM: Welcome to Radar Nexus</div>
+            </div>
+        </div>
+
+        <!-- Help Modal (Hidden by default) -->
+        <div id="help-modal" class="glass-panel"
+            style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 500px; padding: 20px; z-index: 1000; max-height: 80vh; overflow-y: auto;">
+            <h2>COMMAND LIST</h2>
+            <ul style="list-style: none; padding: 0; font-size: 0.9rem; line-height: 1.6;">
+                <li><strong>H[deg]</strong> - HEADING (e.g., H270)</li>
+                <li><strong>A[ft]</strong> - ALTITUDE (e.g., A4000)</li>
+                <li><strong>S[kt]</strong> - SPEED (e.g., S200)</li>
+                <li><strong>CT</strong> - CONTACT TOWER</li>
+                <li><strong>DCT [wp]</strong> - DIRECT TO WAYPOINT</li>
+                <li><strong>T[on/off]</strong> - TOGGLE TRAIL DOTS (Not impl yet)</li>
+            </ul>
+            <div style="text-align: center; margin-top: 20px;">
+                <button id="btn-close-help"
+                    style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer;">CLOSE</button>
             </div>
         </div>
 

@@ -87,27 +87,7 @@ export class Game extends Scene
         // Initialize UIManager
         this.uiManager = new UIManager({
             onCommand: (cmd) => this.handleCommand(cmd),
-            onTimeScaleChange: (scale) => this.timeScale = scale,
-            onHeadingChange: (val) => {
-                if (this.selectedAircraft && this.selectedAircraft.state === 'FLYING') {
-                    this.selectedAircraft.targetHeading = val;
-                }
-            },
-            onAltitudeChange: (val) => {
-                if (this.selectedAircraft && this.selectedAircraft.state === 'FLYING') {
-                    this.selectedAircraft.targetAltitude = val;
-                }
-            },
-            onSpeedChange: (val) => {
-                if (this.selectedAircraft && this.selectedAircraft.state === 'FLYING') {
-                    this.selectedAircraft.targetSpeed = val;
-                }
-            },
-            onContactTower: () => {
-                if (this.selectedAircraft && this.selectedAircraft.state === 'LANDING') {
-                    this.handleCommand('CONTACT TOWER');
-                }
-            }
+            onTimeScaleChange: (scale) => this.timeScale = scale
         });
         
         this.input.on('pointerdown', (_pointer: Phaser.Input.Pointer, currentlyOver: any[]) => {

@@ -2,89 +2,65 @@
 import { Aircraft } from '../models/Aircraft';
 
 export class UIManager {
-    private sidebar: HTMLElement | null;
-    private uiCallsign: HTMLElement | null;
-    private inputHeading: HTMLInputElement | null;
-    private valHeading: HTMLElement | null;
-    private inputAltitude: HTMLInputElement | null;
-    private valAltitude: HTMLElement | null;
-    private inputSpeed: HTMLInputElement | null;
-    private valSpeed: HTMLElement | null;
     private inputCommand: HTMLInputElement | null;
     private commMessages: HTMLElement | null;
+    private btnHelp: HTMLElement | null;
+    private helpModal: HTMLElement | null;
+    private btnCloseHelp: HTMLElement | null;
 
     constructor(
         private callbacks: {
             onCommand: (cmd: string) => void;
             onTimeScaleChange: (scale: number) => void;
-            onHeadingChange: (val: number) => void;
-            onAltitudeChange: (val: number) => void;
-            onSpeedChange: (val: number) => void;
-            onContactTower: () => void;
         }
     ) {
-        // UI参照
-        this.sidebar = document.getElementById('control-panel');
-        this.uiCallsign = document.getElementById('ui-callsign');
-        this.inputHeading = document.getElementById('input-heading') as HTMLInputElement;
-        this.valHeading = document.getElementById('val-heading');
-        this.inputAltitude = document.getElementById('input-altitude') as HTMLInputElement;
-        this.valAltitude = document.getElementById('val-altitude');
-        this.inputSpeed = document.getElementById('input-speed') as HTMLInputElement;
-        this.valSpeed = document.getElementById('val-speed');
+        // UI References
         this.inputCommand = document.getElementById('input-command') as HTMLInputElement;
         this.commMessages = document.getElementById('comm-messages');
+        this.btnHelp = document.getElementById('btn-help');
+        this.helpModal = document.getElementById('help-modal');
+        this.btnCloseHelp = document.getElementById('btn-close-help');
 
         this.setupEventListeners();
     }
 
     private setupEventListeners() {
-        if (!this.inputHeading || !this.inputAltitude || !this.inputSpeed || !this.inputCommand) return;
+        if (!this.inputCommand) return;
 
         // Speed Buttons
         const speedButtons = ['1', '2', '4'];
         speedButtons.forEach(s => {
             const btn = document.getElementById(`btn-speed-${s}`);
-            btn?.addEventListener('click', () => {
-                this.callbacks.onTimeScaleChange(parseInt(s));
-                speedButtons.forEach(sb => {
-                    document.getElementById(`btn-speed-${sb}`)?.classList.toggle('active', sb === s);
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    this.callbacks.onTimeScaleChange(parseInt(s));
+                    speedButtons.forEach(sb => {
+                        document.getElementById(`btn-speed-${sb}`)?.classList.toggle('active', sb === s);
+                    });
                 });
-            });
-        });
-
-        // Input Events
-        this.inputHeading.addEventListener('input', (e) => {
-            const val = parseInt((e.target as HTMLInputElement).value);
-            if (this.valHeading) this.valHeading.innerText = val.toString().padStart(3, '0');
-            this.callbacks.onHeadingChange(val);
-        });
-
-        this.inputAltitude.addEventListener('input', (e) => {
-            const val = parseInt((e.target as HTMLInputElement).value);
-            if (this.valAltitude) this.valAltitude.innerText = val.toString().padStart(5, '0');
-            this.callbacks.onAltitudeChange(val);
-        });
-
-        this.inputSpeed.addEventListener('input', (e) => {
-            const val = parseInt((e.target as HTMLInputElement).value);
-            if (this.valSpeed) this.valSpeed.innerText = val.toString().padStart(3, '0');
-            this.callbacks.onSpeedChange(val);
+            }
         });
 
         // Command Input
         this.inputCommand.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 if (this.inputCommand) {
-                    this.callbacks.onCommand(this.inputCommand.value);
-                    this.inputCommand.value = '';
+                    const cmd = this.inputCommand.value.trim();
+                    if (cmd) {
+                        this.callbacks.onCommand(cmd);
+                        this.inputCommand.value = '';
+                    }
                 }
             }
         });
 
-        // Contact Tower
-        document.getElementById('btn-contact-tower')?.addEventListener('click', () => {
-            this.callbacks.onContactTower();
+        // Help Button
+        this.btnHelp?.addEventListener('click', () => {
+            if (this.helpModal) this.helpModal.style.display = 'block';
+        });
+
+        this.btnCloseHelp?.addEventListener('click', () => {
+            if (this.helpModal) this.helpModal.style.display = 'none';
         });
     }
 
@@ -104,31 +80,12 @@ export class UIManager {
     }
 
     public updateSidebar(ac: Aircraft | null) {
-        if (!this.sidebar || !this.uiCallsign || !this.inputHeading || !this.inputAltitude || !this.inputSpeed || !this.valHeading || !this.valAltitude || !this.valSpeed || !this.inputCommand) return;
-
-        if (!ac) {
-            this.sidebar.classList.remove('visible');
-            return;
+        // Method kept empty for compatibility or future use if needed, 
+        // but sidebar is abolished.
+        // We can update other UI elements here if necessary (e.g. status bar?)
+        if (this.inputCommand && !this.isCommandInputFocused()) {
+            this.inputCommand.focus();
         }
-
-        this.sidebar.classList.add('visible');
-        this.uiCallsign.innerText = ac.callsign;
-        
-        const isControllable = ac.state === 'FLYING' && ac.ownership === 'OWNED';
-        this.inputHeading.disabled = !isControllable;
-        this.inputAltitude.disabled = !isControllable;
-        this.inputSpeed.disabled = !isControllable;
-
-        this.inputHeading.value = ac.targetHeading.toString();
-        this.valHeading.innerText = ac.targetHeading.toString().padStart(3, '0');
-
-        this.inputAltitude.value = ac.targetAltitude.toString();
-        this.valAltitude.innerText = ac.targetAltitude.toString().padStart(5, '0');
-
-        this.inputSpeed.value = ac.targetSpeed.toString();
-        this.valSpeed.innerText = ac.targetSpeed.toString().padStart(3, '0');
-        
-        this.inputCommand.value = ''; 
     }
     
     public isCommandInputFocused(): boolean {
