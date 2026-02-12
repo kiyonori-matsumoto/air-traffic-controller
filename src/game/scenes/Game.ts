@@ -92,10 +92,8 @@ export class Game extends Scene
         
         this.input.on('pointerdown', (_pointer: Phaser.Input.Pointer, currentlyOver: any[]) => {
             if(currentlyOver.length === 0) {
-                // Check if command input is focused
-                if (!this.uiManager.isCommandInputFocused()) {
-                    this.selectAircraft(null);
-                }
+                // Deselect if clicking empty space, regardless of focus
+                this.selectAircraft(null);
             }
         });
 
@@ -205,12 +203,8 @@ export class Game extends Scene
     }
 
     private selectAircraft(ac: Aircraft | null) {
-        // Handoff Acceptance Logic
-        if (ac && ac.ownership === 'HANDOFF_OFFERED') {
-            ac.ownership = 'OWNED';
-            this.addLog(`${ac.callsign} radar contact.`, 'atc');
-            // TODO: Play sound?
-        }
+        // Handoff Acceptance Logic REMOVED (Now requires RADAR CONTACT command)
+        // if (ac && ac.ownership === 'HANDOFF_OFFERED') { ... }
 
         this.selectedAircraft = ac;
         this.trafficManager.selectAircraft(ac);

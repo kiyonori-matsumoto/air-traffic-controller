@@ -72,15 +72,7 @@ body {
     pointer-events: auto;
 }
 
-/* Command Input Container */
-#cmd-container {
-    transition: all 0.2s;
-}
 
-#cmd-container:focus-within {
-    box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
-    border-color: var(--radar-green);
-}
 
 /* Communication Log Panel */
 #comm-log-panel {
@@ -172,14 +164,15 @@ body {
 /* Communication Log Panel */
 #comm-log-panel {
     /* Position is handled by HTML inline styles for now, but we keep base styles */
-    min-height: 150px;
-    max-height: 60vh;
+    min-height: 200px;
+    max-height: 80vh;
     padding: 16px;
     display: flex;
     flex-direction: column;
     pointer-events: auto;
     resize: vertical;
     overflow: hidden;
+    /* Hide overflow from resize handle affecting flex */
 }
 
 #comm-messages {

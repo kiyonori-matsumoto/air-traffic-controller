@@ -209,6 +209,27 @@ export class TrafficManager {
         const sy = this.cy - (logic.measuredY * this.pixelsPerNm);
         ac.visual.setPosition(sx, sy);
 
+        // Update Visual State (Colors & Highlights)
+        const isOwned = logic.ownership === 'OWNED';
+        const isOffered = logic.ownership === 'HANDOFF_OFFERED';
+        const isSelected = logic === this.selected;
+
+        const baseColor = isOffered ? '#cccc00' : '#00ff41'; // Yellow if offered, Green if owned
+        ac.components.dataText.setColor(baseColor);
+        ac.components.callsignText.setColor(baseColor);
+
+        // Highlight Ring
+        // Show if Selected OR Offered
+        if (isSelected) {
+            ac.components.highlight.setStrokeStyle(1.5, 0x00ff41); // Green for selection
+            ac.components.highlight.setVisible(true);
+        } else if (isOffered) {
+            ac.components.highlight.setStrokeStyle(1.5, 0xcccc00); // Yellow for handoff offer
+            ac.components.highlight.setVisible(true);
+        } else {
+            ac.components.highlight.setVisible(false);
+        }
+
         // Update J-Ring Position
         ac.components.jRing.setPosition(sx, sy);
 

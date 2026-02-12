@@ -157,25 +157,48 @@ export class CommandSystem {
         
         // 5. Contact Tower
         if (command === 'CONTACT TOWER' || command === 'CT') {
-             // Distance check should technically be outside or passed in? 
-             // Letting Game check distance for now, or just trusting the command?
-             // Ideally CommandSystem handles logic. Let's do a basic check if possible.
-             // But 'Game' has the context. 
-             // For now, let's assume if it reached here, it's valid or we just executes.
-             // But originally there was a distance check.
-             // Let's defer distance check to caller or move it here if we pass simple data.
-             
-             // Simplification: We blindly execute if syntax matches, validation can happen here if we want.
              const msg = `${ac.callsign} contact tower 118.1. Good day.`;
              result.atcLog = msg;
              result.voiceLog = msg;
              result.pilotLog = `contact tower 118.1, good day, ${ac.callsign}`;
              result.pendingUpdates.push(() => {
                  ac.ownership = 'HANDOFF_COMPLETE';
-                 // Selection clearing must be done by Game
              });
              result.handled = true;
              return result;
+        }
+
+        // 6. Radar Contact (Handoff Accept)
+        if (command === 'RADAR CONTACT' || command === 'RC') {
+            if (ac.ownership === 'HANDOFF_OFFERED') {
+                const msg = `${ac.callsign} radar contact.`;
+                result.atcLog = msg;
+                result.voiceLog = msg;
+                // Pilot doesn't usually readback "radar contact" in the same way, but acknowledgement is good.
+                // Or maybe just silence or "Roger".
+                // Let's have pilot say "Roger, [Callsign]" or just nothing?
+                // Realistically pilot checks in, ATC says radar contact. Pilot listens.
+                // User requirement said "add audio".
+                // Let's make pilot acknowledge.
+                result.pilotLog = `roger, ${ac.callsign}`; 
+
+                result.pendingUpdates.push(() => {
+                    ac.ownership = 'OWNED';
+                });
+                result.handled = true;
+                return result;
+            } else {
+                 // Already owned or not offered?
+                 // If already owned, maybe just say it again?
+                 // If not offered (UNOWNED), we can't accept it.
+                 if (ac.ownership === 'OWNED') {
+                     result.atcLog = `${ac.callsign} already under control.`;
+                 } else {
+                     result.atcLog = `${ac.callsign} not offering handoff.`;
+                 }
+                 // result.handled = true; // Mark as handled to avoid "Unknown command" but no action
+                 return result;
+            }
         }
 
         return result;

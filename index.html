@@ -30,21 +30,24 @@
             ?
         </button>
 
-        <!-- Command Input (Bottom Center/Right) -->
-        <div id="cmd-container" class="glass-panel"
-            style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 400px; padding: 10px;">
-            <input type="text" id="input-command" placeholder="> ENTER COMMAND..." spellcheck="false" autocomplete="off"
-                style="width: 100%; background: transparent; border: none; color: #00ff41; font-family: monospace; font-size: 1.1rem; outline: none;">
-        </div>
-
-        <!-- Communication Log Panel (Right Side) -->
+        <!-- Communication Log Panel (Right Side) - Integrated Command Input -->
         <div id="comm-log-panel" class="glass-panel"
-            style="position: absolute; top: 80px; right: 20px; bottom: 100px; width: 300px; display: flex; flex-direction: column; pointer-events: auto;">
-            <div class="panel-header" style="padding-bottom: 8px; margin-bottom: 8px;">
-                <h2>COMMUNICATION LOG</h2>
+            style="position: absolute; top: 80px; right: 20px; bottom: 40px; width: 350px; display: flex; flex-direction: column; pointer-events: auto;">
+            <div class="panel-header"
+                style="padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <h2 style="margin:0; font-size: 1rem; color: #888;">COMMUNICATION</h2>
             </div>
             <div id="comm-messages">
                 <div class="msg system">SYSTEM: Welcome to Radar Nexus</div>
+            </div>
+
+            <!-- Integrated Command Input -->
+            <div class="input-area"
+                style="margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;">
+                <span style="color: #00ff41; margin-right: 4px;">&gt;</span>
+                <input type="text" id="input-command" placeholder="ENTER COMMAND..." spellcheck="false"
+                    autocomplete="off"
+                    style="width: calc(100% - 20px); background: transparent; border: none; color: #fff; font-family: monospace; font-size: 1rem; outline: none;">
             </div>
         </div>
 
