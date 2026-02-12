@@ -373,47 +373,57 @@ export class Game extends Scene
         const command = cmd.trim().toUpperCase();
 
         // 1. Standard ATC Shorthand (Multi-command support)
-        // Format example: "H090 S210 A3000" or "H360"
         let handled = false;
+        let readbackMsg = "";
 
-        // Heading: H + 3 digits (e.g., H090, H360)
+        // Heading
         const headingMatch = command.match(/H(\d{3})/);
         if (headingMatch) {
             let val = parseInt(headingMatch[1]);
-            val = val % 360; // Just in case
+            val = val % 360; 
             ac.targetHeading = val;
             this.addLog(`${ac.callsign} turn left heading ${val}.`, 'atc');
+            readbackMsg += `turn left heading ${val}, `;
             handled = true;
         }
 
-        // Speed: S + 2-3 digits (e.g., S210, S180)
+        // Speed
         const speedMatch = command.match(/S(\d{2,3})/);
         if (speedMatch) {
             const val = parseInt(speedMatch[1]);
             ac.targetSpeed = val;
             this.addLog(`${ac.callsign} reduce speed to ${val}.`, 'atc');
+            readbackMsg += `reduce speed to ${val}, `;
             handled = true;
         }
 
-        // Altitude: A + digits (ft) or FL + digits
+        // Altitude
         const altMatch = command.match(/A(\d+)/);
         if (altMatch) {
             const val = parseInt(altMatch[1]);
             ac.targetAltitude = val;
             this.addLog(`${ac.callsign} climb/descend maintain ${val}.`, 'atc');
+            readbackMsg += `maintain ${val}, `;
             handled = true;
         }
         const flMatch = command.match(/FL(\d{2,3})/);
         if (flMatch) {
             const val = parseInt(flMatch[1]) * 100;
             ac.targetAltitude = val;
+            // Use standard phraseology "Flight Level"
             this.addLog(`${ac.callsign} climb/descend maintain flight level ${flMatch[1]}.`, 'atc');
+            readbackMsg += `maintain flight level ${flMatch[1]}, `;
             handled = true;
         }
 
         if (handled) {
              this.updateSidebarValues();
-             return; // Don't process other commands if shorthand was found
+             if (readbackMsg) {
+                // Remove trailing comma and space
+                readbackMsg = readbackMsg.slice(0, -2);
+                this.schedulePilotResponse(ac, `${readbackMsg}. ${ac.callsign}`);
+             }
+             return; 
         }
 
 
@@ -432,6 +442,7 @@ export class Game extends Scene
 
             // フライトプラン構築
             const newPlan = [startWp];
+            let routeName = '';
             
             // STAR検索
             for (const starName in this.airport.stars) {
@@ -443,6 +454,7 @@ export class Game extends Scene
                         const nextWp = this.airport.getWaypoint(nextWpName);
                         if (nextWp) newPlan.push(nextWp);
                     }
+                    routeName = `${starName} arrival`;
                     this.addLog(`${ac.callsign} cleared via ${starName} arrival.`, 'atc');
                     break; 
                 }
@@ -450,13 +462,19 @@ export class Game extends Scene
 
             ac.flightPlan = newPlan;
             ac.activeWaypoint = null;
-            this.addLog(`${ac.callsign} proceed direct ${fixName}.`, 'atc');
+            if (routeName) {
+                this.schedulePilotResponse(ac, `cleared via ${routeName}, ${ac.callsign}`);
+            } else {
+                this.addLog(`${ac.callsign} proceed direct ${fixName}.`, 'atc');
+                this.schedulePilotResponse(ac, `direct ${fixName}, ${ac.callsign}`);
+            }
         } else if (command === 'CONTACT TOWER' || command === 'CT') {
             // Check conditions: Distance < 10NM and State == LANDING (ILS Captured)
             const dist = Math.sqrt(ac.x*ac.x + ac.y*ac.y); 
             if (dist < 10 && ac.state === 'LANDING') {
                 ac.ownership = 'HANDOFF_COMPLETE';
                 this.addLog(`${ac.callsign} contact tower 118.1. Good day.`, 'atc');
+                this.schedulePilotResponse(ac, `contact tower 118.1, good day, ${ac.callsign}`);
                 this.selectAircraft(null); 
             } else {
                 this.addLog(`${ac.callsign} unable contact tower.`, 'system');
@@ -464,6 +482,14 @@ export class Game extends Scene
             }
         }
 
+    }
+
+    private schedulePilotResponse(ac: Aircraft, msg: string) {
+        // Simulate delay (1.5 - 2.5 seconds)
+        const delay = 1500 + Math.random() * 1000;
+        this.time.delayedCall(delay, () => {
+             this.addLog(msg, 'pilot');
+        });
     }
 
     update(time: number, delta: number) {
