@@ -3,6 +3,7 @@ import { Aircraft } from '../../models/Aircraft';
 import { Airport, Runway } from '../../models/Airport';
 import { Radar } from '../../models/Radar';
 import { VideoMap } from '../../models/VideoMap';
+import { RadioNoise } from '../../ui/RadioNoise';
 
 
 
@@ -25,6 +26,7 @@ interface AircraftEntity {
 export class Game extends Scene
 {
     // ... (properties)
+    private radioNoise: RadioNoise;
     camera: Phaser.Cameras.Scene2D.Camera;
     background: Phaser.GameObjects.Image;
     msg_text : Phaser.GameObjects.Text;
@@ -219,6 +221,8 @@ export class Game extends Scene
             const ry = (Math.random() - 0.5) * 60; // -30 ~ 30 NM
             this.spawnAircraft(rx, ry);
         }
+
+        this.radioNoise = new RadioNoise();
     }
 
     private redrawVideoMap() {
@@ -375,14 +379,24 @@ export class Game extends Scene
         // 1. Standard ATC Shorthand (Multi-command support)
         let handled = false;
         let readbackMsg = "";
+        let atcVoiceMsg = "";
+        const atcLogMsgs: string[] = [];
+        const pendingUpdates: (() => void)[] = [];
 
         // Heading
         const headingMatch = command.match(/H(\d{3})/);
         if (headingMatch) {
             let val = parseInt(headingMatch[1]);
             val = val % 360; 
-            ac.targetHeading = val;
-            this.addLog(`${ac.callsign} turn left heading ${val}.`, 'atc');
+            
+            pendingUpdates.push(() => {
+                ac.targetHeading = val;
+            });
+
+            const msg = `${ac.callsign} turn left heading ${val}.`;
+            this.addLog(msg, 'atc');
+            atcLogMsgs.push(msg);
+            atcVoiceMsg += `${ac.callsign} turn left heading ${val}, `;
             readbackMsg += `turn left heading ${val}, `;
             handled = true;
         }
@@ -391,8 +405,14 @@ export class Game extends Scene
         const speedMatch = command.match(/S(\d{2,3})/);
         if (speedMatch) {
             const val = parseInt(speedMatch[1]);
-            ac.targetSpeed = val;
-            this.addLog(`${ac.callsign} reduce speed to ${val}.`, 'atc');
+            
+            pendingUpdates.push(() => {
+                ac.targetSpeed = val;
+            });
+
+            const msg = `${ac.callsign} reduce speed to ${val}.`;
+            this.addLog(msg, 'atc');
+            atcVoiceMsg += `reduce speed to ${val}, `;
             readbackMsg += `reduce speed to ${val}, `;
             handled = true;
         }
@@ -401,27 +421,45 @@ export class Game extends Scene
         const altMatch = command.match(/A(\d+)/);
         if (altMatch) {
             const val = parseInt(altMatch[1]);
-            ac.targetAltitude = val;
-            this.addLog(`${ac.callsign} climb/descend maintain ${val}.`, 'atc');
+            
+            pendingUpdates.push(() => {
+                ac.targetAltitude = val;
+            });
+
+            const msg = `${ac.callsign} climb/descend maintain ${val}.`;
+            this.addLog(msg, 'atc');
+            atcVoiceMsg += `climb maintain ${val}, `;
             readbackMsg += `maintain ${val}, `;
             handled = true;
         }
         const flMatch = command.match(/FL(\d{2,3})/);
         if (flMatch) {
             const val = parseInt(flMatch[1]) * 100;
-            ac.targetAltitude = val;
-            // Use standard phraseology "Flight Level"
-            this.addLog(`${ac.callsign} climb/descend maintain flight level ${flMatch[1]}.`, 'atc');
+            
+            pendingUpdates.push(() => {
+                ac.targetAltitude = val;
+            });
+
+            const msg = `${ac.callsign} climb/descend maintain flight level ${flMatch[1]}.`;
+            this.addLog(msg, 'atc');
+            atcVoiceMsg += `climb maintain flight level ${flMatch[1]}, `;
             readbackMsg += `maintain flight level ${flMatch[1]}, `;
             handled = true;
         }
 
         if (handled) {
-             this.updateSidebarValues();
-             if (readbackMsg) {
-                // Remove trailing comma and space
-                readbackMsg = readbackMsg.slice(0, -2);
-                this.schedulePilotResponse(ac, `${readbackMsg}. ${ac.callsign}`);
+             // Speak ATC command first
+             if (atcVoiceMsg) {
+                 this.speak(atcVoiceMsg, 'ATC', undefined, () => {
+                     if (readbackMsg) {
+                        readbackMsg = readbackMsg.slice(0, -2);
+                        this.schedulePilotResponse(ac, `${readbackMsg}. ${ac.callsign}`, () => {
+                            // Execute updates after pilot readback
+                            pendingUpdates.forEach(update => update());
+                            this.updateSidebarValues(); // Update UI to reflect changes
+                        });
+                     }
+                 });
              }
              return; 
         }
@@ -441,9 +479,9 @@ export class Game extends Scene
             }
 
             // フライトプラン構築
-            const newPlan = [startWp];
             let routeName = '';
-            
+            const newPlan = [startWp];
+
             // STAR検索
             for (const starName in this.airport.stars) {
                 const route = this.airport.stars[starName];
@@ -456,26 +494,37 @@ export class Game extends Scene
                     }
                     routeName = `${starName} arrival`;
                     this.addLog(`${ac.callsign} cleared via ${starName} arrival.`, 'atc');
+                    atcVoiceMsg = `${ac.callsign} cleared via ${starName} arrival.`;
                     break; 
                 }
             }
+            
+            const updatePlan = () => {
+                ac.flightPlan = newPlan;
+                ac.activeWaypoint = null;
+            };
 
-            ac.flightPlan = newPlan;
-            ac.activeWaypoint = null;
             if (routeName) {
-                this.schedulePilotResponse(ac, `cleared via ${routeName}, ${ac.callsign}`);
+                this.speak(atcVoiceMsg, 'ATC', undefined, () => {
+                    this.schedulePilotResponse(ac, `cleared via ${routeName}, ${ac.callsign}`, updatePlan);
+                });
             } else {
                 this.addLog(`${ac.callsign} proceed direct ${fixName}.`, 'atc');
-                this.schedulePilotResponse(ac, `direct ${fixName}, ${ac.callsign}`);
+                this.speak(`${ac.callsign} proceed direct ${fixName}.`, 'ATC', undefined, () => {
+                    this.schedulePilotResponse(ac, `direct ${fixName}, ${ac.callsign}`, updatePlan);
+                });
             }
         } else if (command === 'CONTACT TOWER' || command === 'CT') {
-            // Check conditions: Distance < 10NM and State == LANDING (ILS Captured)
             const dist = Math.sqrt(ac.x*ac.x + ac.y*ac.y); 
             if (dist < 10 && ac.state === 'LANDING') {
-                ac.ownership = 'HANDOFF_COMPLETE';
-                this.addLog(`${ac.callsign} contact tower 118.1. Good day.`, 'atc');
-                this.schedulePilotResponse(ac, `contact tower 118.1, good day, ${ac.callsign}`);
-                this.selectAircraft(null); 
+                const msg = `${ac.callsign} contact tower 118.1. Good day.`;
+                this.addLog(msg, 'atc');
+                this.speak(msg, 'ATC', undefined, () => {
+                    this.schedulePilotResponse(ac, `contact tower 118.1, good day, ${ac.callsign}`, () => {
+                        ac.ownership = 'HANDOFF_COMPLETE';
+                        this.selectAircraft(null);
+                    });
+                });
             } else {
                 this.addLog(`${ac.callsign} unable contact tower.`, 'system');
                 console.log(`${ac.callsign} Unable to contact tower (Dist: ${dist.toFixed(1)}NM, State: ${ac.state})`);
@@ -484,15 +533,83 @@ export class Game extends Scene
 
     }
 
-    private schedulePilotResponse(ac: Aircraft, msg: string) {
+    private schedulePilotResponse(ac: Aircraft, msg: string, onValidReadback?: () => void) {
         // Simulate delay (1.5 - 2.5 seconds)
+        // This delay represents the pilot's reaction time / processing time
         const delay = 1500 + Math.random() * 1000;
         this.time.delayedCall(delay, () => {
              this.addLog(msg, 'pilot');
+             this.speak(msg, 'PILOT', ac, onValidReadback);
         });
     }
 
-    update(time: number, delta: number) {
+    private speak(text: string, type: 'ATC' | 'PILOT', ac?: Aircraft, onEnd?: () => void) {
+        if (!window.speechSynthesis) {
+            if (onEnd) onEnd();
+            return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        
+        if (type === 'PILOT') {
+            utterance.rate = 1.1; 
+            // Random pitch based on aircraft
+            let pitch = 1.0;
+            if (ac) {
+                const hash = ac.callsign.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                pitch = 0.8 + (hash % 5) * 0.1; 
+            } else {
+                pitch = 0.9 + Math.random() * 0.2;
+            }
+            utterance.pitch = pitch;
+        } else {
+             utterance.rate = 1.0;
+             utterance.pitch = 1.0;
+        }
+
+        // Voice Selection
+        const voices = window.speechSynthesis.getVoices();
+        const enVoices = voices.filter(v => v.lang.startsWith('en'));
+        
+        if (enVoices.length > 0) {
+            if (type === 'PILOT') {
+                 if (ac) {
+                    const hash = ac.callsign.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                    utterance.voice = enVoices[hash % enVoices.length];
+                } else {
+                    utterance.voice = enVoices[Math.floor(Math.random() * enVoices.length)];
+                }
+            } else {
+                utterance.voice = enVoices[0];
+            }
+        }
+
+        utterance.onstart = () => {
+             // Start radio noise
+             try {
+                this.radioNoise.playSquelch();
+                this.radioNoise.start();
+             } catch (e) {
+                 console.warn("Radio noise failed to start", e);
+             }
+        };
+
+        utterance.onend = () => {
+            // Stop radio noise
+            try {
+                this.radioNoise.stop();
+                this.radioNoise.playSquelch(); // End squelch
+            } catch (e) {
+                console.warn("Radio noise failed to stop", e);
+            }
+            if (onEnd) onEnd();
+        };
+
+        window.speechSynthesis.speak(utterance);
+    }
+
+    update(_time: number, delta: number) {
         const dt = (delta / 1000) * this.timeScale;
 
         // 0. データタグの重なり回避計算
