@@ -2,6 +2,8 @@ import { Scene } from 'phaser';
 import { Aircraft } from '../../models/Aircraft';
 import { Airport, Runway } from '../../models/Airport';
 import { Radar } from '../../models/Radar';
+import { VideoMap } from '../../models/VideoMap';
+
 
 
 interface AircraftEntity {
@@ -27,7 +29,12 @@ export class Game extends Scene
     background: Phaser.GameObjects.Image;
     msg_text : Phaser.GameObjects.Text;
     private aircrafts: AircraftEntity[] = [];
-    private readonly SCALE = 10; // 1px = 10NM
+    
+    // Radar Settings
+    private readonly RADAR_RANGE_NM = 40; // 表示半径 (NM)
+    private pixelsPerNm: number; // 計算されるスケール (px/NM)
+
+
     private readonly CX = 512;
     private readonly CY = 384;
     private selectedAircraft: Aircraft | null = null;
@@ -35,6 +42,10 @@ export class Game extends Scene
     private airport: Airport;
     private radar: Radar; 
     private radarBeam: Phaser.GameObjects.Line;
+    private videoMap: VideoMap;
+    private videoMapGraphics: Phaser.GameObjects.Graphics;
+    private rangeRingsGraphics: Phaser.GameObjects.Graphics;
+
 
     private runwayVisuals: Phaser.GameObjects.Rectangle[] = [];
 
@@ -70,8 +81,8 @@ export class Game extends Scene
         const vectorLine = this.add.line(0, 0, 0, 0, 0, 0, 0x00ff41, 0.5);
         vectorLine.setOrigin(0, 0);
 
-        // 3. Jリング (距離定規) 3NM (半径30px)
-        const jRing = this.add.circle(0, 0, 3 * this.SCALE);
+        // 3. Jリング (距離定規) 3NM
+        const jRing = this.add.circle(0, 0, 3 * this.pixelsPerNm);
         jRing.setStrokeStyle(0.5, 0x00ff41, 0.3); // 薄い緑
         jRing.setVisible(false); // 選択時のみ表示
         // コンテナ外に配置 (機体に追従させるにはUpdateで位置更新が必要だが、今回は機体中心に配置したいのでコンテナ外だと面倒。コンテナ内に入れるか？)
@@ -102,6 +113,79 @@ export class Game extends Scene
     }
 
     create () {
+        // スケール計算
+        // 画面高さの90% (384 * 0.9 = 345px) を RADAR_RANGE_NM で割る
+        // Range=40NM -> 345/40 = 8.6 px/NM
+        // Range=20NM -> 345/20 = 17.2 px/NM (拡大)
+        const displayRadiusPx = this.CY * 0.9;
+        this.pixelsPerNm = displayRadiusPx / this.RADAR_RANGE_NM;
+
+        // スケール変更時に再描画が必要なもの
+        // 1. Video Map
+        // 2. Range Rings
+        
+        this.redrawVideoMap();
+        this.redrawRangeRings();
+        this.updateStaticObjectPositions();
+    }
+
+    private redrawVideoMap() {
+        if (!this.videoMapGraphics) return;
+        this.videoMapGraphics.clear();
+
+        this.videoMap.lines.forEach(line => {
+            if (line.type === 'COASTLINE') {
+                this.videoMapGraphics.lineStyle(1, 0x555555, 0.5); // Faint Grey
+            } else if (line.type === 'SECTOR') {
+                this.videoMapGraphics.lineStyle(1, 0x004400, 1.0); // Dark Green
+            } else if (line.type === 'RESTRICTED') {
+                 this.videoMapGraphics.lineStyle(1, 0x440000, 0.8); // Dark Red
+            }
+
+            this.videoMapGraphics.beginPath();
+            if (line.points.length > 0) {
+                const sx = this.CX + (line.points[0].x * this.pixelsPerNm);
+                const sy = this.CY - (line.points[0].y * this.pixelsPerNm);
+                this.videoMapGraphics.moveTo(sx, sy);
+                
+                for (let i = 1; i < line.points.length; i++) {
+                    const px = this.CX + (line.points[i].x * this.pixelsPerNm);
+                    const py = this.CY - (line.points[i].y * this.pixelsPerNm);
+                    this.videoMapGraphics.lineTo(px, py);
+                }
+            }
+            this.videoMapGraphics.strokePath();
+        });
+    }
+
+    private redrawRangeRings() {
+        if (!this.rangeRingsGraphics) return;
+        this.rangeRingsGraphics.clear();
+        this.rangeRingsGraphics.lineStyle(1, 0x222222, 0.5); // Faint Grey Circles
+
+        // Draw rings every 5NM up to current range + margin
+        const maxRing = this.RADAR_RANGE_NM; 
+        for (let r = 5; r <= maxRing; r += 5) {
+            const radiusPx = r * this.pixelsPerNm;
+            this.rangeRingsGraphics.strokeCircle(this.CX, this.CY, radiusPx);
+        }
+    }
+
+    private updateStaticObjectPositions() {
+        // Runway
+        if (this.airport) {
+             this.runwayVisuals.forEach((rect, i) => {
+                 const rwy = this.airport.runways[i]; // Index対応に依存（脆い）
+                 if (rwy) {
+                    const sx = this.CX + (rwy.x * this.pixelsPerNm);
+                    const sy = this.CY - (rwy.y * this.pixelsPerNm);
+                    rect.setPosition(sx, sy);
+                    rect.setSize(4, rwy.length * this.pixelsPerNm); // 長さも変わる
+                 }
+             });
+        }
+
+
         // 空港・滑走路のセットアップ
         // 羽田 34R (中心0,0付近として設定)
         const rwy34R = new Runway('34R', 0, 0, 340, 1.5);
@@ -109,12 +193,12 @@ export class Game extends Scene
 
         // 滑走路の描画
         this.airport.runways.forEach(rwy => {
-            const sx = this.CX + (rwy.x * this.SCALE);
-            const sy = this.CY - (rwy.y * this.SCALE);
+            const sx = this.CX + (rwy.x * this.pixelsPerNm);
+            const sy = this.CY - (rwy.y * this.pixelsPerNm);
             
             // 1.5NM = 15px @ SCALE=10.
             // 滑走路の向きに合わせて回転
-            const rect = this.add.rectangle(sx, sy, 4, rwy.length * this.SCALE, 0x444444);
+            const rect = this.add.rectangle(sx, sy, 4, rwy.length * this.pixelsPerNm, 0x444444);
             rect.setAngle(rwy.heading);
             this.runwayVisuals.push(rect);
             
@@ -123,7 +207,7 @@ export class Game extends Scene
 
             // ILS ビーム（可視化）
             // 15NM の範囲、角度 6度 (±3度)
-            const beamLength = 15 * this.SCALE;
+            const beamLength = 15 * this.pixelsPerNm;
             const beamAngle = rwy.heading + 180; // 進入方向
             const beam = this.add.triangle(
                 sx, sy,
@@ -137,8 +221,8 @@ export class Game extends Scene
 
         // Waypointの描画
         this.airport.waypoints.forEach(wp => {
-            const sx = this.CX + (wp.x * this.SCALE);
-            const sy = this.CY - (wp.y * this.SCALE);
+            const sx = this.CX + (wp.x * this.pixelsPerNm);
+            const sy = this.CY - (wp.y * this.pixelsPerNm);
             
             // 三角形 (Fix)
             this.add.triangle(sx, sy, 0, -5, 4, 3, -4, 3, 0xaaaaaa).setOrigin(0, 0);
@@ -149,6 +233,16 @@ export class Game extends Scene
         this.radar = new Radar();
         this.radarBeam = this.add.line(0, 0, 0, 0, 0, 0, 0x00ff00, 0.3);
         this.radarBeam.setOrigin(0, 0);
+
+        // Video Map & Range Rings Initialization
+        this.videoMap = new VideoMap();
+        this.videoMapGraphics = this.add.graphics();
+        this.rangeRingsGraphics = this.add.graphics();
+        
+        // Render Initial Map/Rings
+        this.redrawVideoMap();
+        this.redrawRangeRings();
+
 
 
         // UI速度設定
@@ -394,8 +488,8 @@ export class Game extends Scene
             
             // 座標変換: 中心 (CX, CY) からのオフセット
             // 表示にはレーダー計測位置 (measuredX, measuredY) を使用
-            const sx = this.CX + (ac.logic.measuredX * this.SCALE);
-            const sy = this.CY - (ac.logic.measuredY * this.SCALE); // 北が Logic Y+
+            const sx = this.CX + (ac.logic.measuredX * this.pixelsPerNm);
+            const sy = this.CY - (ac.logic.measuredY * this.pixelsPerNm); // 北が Logic Y+
 
             ac.visual.setPosition(sx, sy);
             this.updateAircraftDisplay(ac);
@@ -535,7 +629,7 @@ export class Game extends Scene
         // 予測ベクトルの更新 (1分 = 60秒)
         // 表示用データもレーダー更新時のものを使用する
         const speedNMPerMin = logic.measuredSpeed / 60; // NM/min
-        const vectorLength = speedNMPerMin * this.SCALE;
+        const vectorLength = speedNMPerMin * this.pixelsPerNm;
         const rad = logic.measuredHeading * (Math.PI / 180);
         
         const vx = Math.sin(rad) * vectorLength;
@@ -580,8 +674,8 @@ export class Game extends Scene
             if (i < ac.components.trailDots.length) {
                 const dot = ac.components.trailDots[i];
                 // 座標変換
-                const sx = this.CX + (pos.x * this.SCALE);
-                const sy = this.CY - (pos.y * this.SCALE);
+                const sx = this.CX + (pos.x * this.pixelsPerNm);
+                const sy = this.CY - (pos.y * this.pixelsPerNm);
                 dot.setPosition(sx, sy);
                 dot.setVisible(true);
                 dot.setFillStyle(color, 0.5 - i * 0.1);
