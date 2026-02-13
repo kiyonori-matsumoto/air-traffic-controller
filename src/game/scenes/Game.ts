@@ -18,8 +18,8 @@ export class Game extends Scene {
   private readonly RADAR_RANGE_NM = 80; // 表示半径 (NM)
   private pixelsPerNm: number; // 計算されるスケール (px/NM)
 
-  private readonly CX = 512;
-  private readonly CY = 384;
+  private CX: number;
+  private CY: number;
   private selectedAircraft: Aircraft | null = null;
 
   private airport: Airport;
@@ -30,6 +30,12 @@ export class Game extends Scene {
   private rangeRingsGraphics: Phaser.GameObjects.Graphics;
 
   private runwayVisuals: Phaser.GameObjects.Rectangle[] = [];
+  private runwayLabels: Phaser.GameObjects.Text[] = [];
+  private runwayBeams: Phaser.GameObjects.Shape[] = [];
+  private waypointVisuals: {
+    triangle: Phaser.GameObjects.Shape;
+    text: Phaser.GameObjects.Text;
+  }[] = [];
 
   private timeScale: number = 1;
   private uiManager: UIManager;
@@ -43,9 +49,16 @@ export class Game extends Scene {
   private trafficManager: TrafficManager;
 
   create() {
+    // Initial Center
+    this.CX = this.cameras.main.width / 2;
+    this.CY = this.cameras.main.height / 2;
+
+    // Listen for Resize
+    this.scale.on("resize", this.handleResize, this);
+
     // スケール計算
-    const displayRadiusPx = this.CY * 0.9;
-    this.pixelsPerNm = displayRadiusPx / this.RADAR_RANGE_NM;
+    // Scale based on Height to keep radar fitting
+    this.pixelsPerNm = (this.CY * 0.9) / this.RADAR_RANGE_NM;
 
     // 空港・滑走路のセットアップ
     // 羽田 34R (中心0,0付近として設定)
@@ -105,6 +118,23 @@ export class Game extends Scene {
     this.audioManager = new AudioManager();
   }
 
+  private handleResize(gameSize: Phaser.Structs.Size) {
+    this.CX = gameSize.width / 2;
+    this.CY = gameSize.height / 2;
+
+    this.camera.setViewport(0, 0, gameSize.width, gameSize.height);
+
+    // Recalculate Scale
+    this.pixelsPerNm = (this.CY * 0.9) / this.RADAR_RANGE_NM;
+
+    // Update Managers
+    this.trafficManager.updateScreenConfig(this.CX, this.CY, this.pixelsPerNm);
+
+    this.redrawVideoMap();
+    this.redrawRangeRings();
+    this.updateStaticObjectPositions(true);
+  }
+
   private redrawVideoMap() {
     if (!this.videoMapGraphics) return;
     this.videoMapGraphics.clear();
@@ -147,28 +177,23 @@ export class Game extends Scene {
     }
   }
 
-  private updateStaticObjectPositions() {
-    // Runway
-    if (this.airport) {
-      this.runwayVisuals.forEach((rect, i) => {
-        const rwy = this.airport.runways[i];
-        if (rwy) {
-          // Calculate Center from Threshold (which is rwy.x, rwy.y)
-          const hRad = rwy.heading * (Math.PI / 180);
-          const halfLen = rwy.length / 2;
-          const centerX = rwy.x + Math.sin(hRad) * halfLen;
-          const centerY = rwy.y + Math.cos(hRad) * halfLen;
-
-          const sx = this.CX + centerX * this.pixelsPerNm;
-          const sy = this.CY - centerY * this.pixelsPerNm;
-          rect.setPosition(sx, sy);
-          rect.setSize(4, rwy.length * this.pixelsPerNm);
-          rect.setAngle(rwy.heading);
-        }
+  private updateStaticObjectPositions(isResize = false) {
+    // If Resize, destroy existing static objects to recreate them with new scale
+    if (isResize) {
+      this.runwayVisuals.forEach((o) => o.destroy());
+      this.runwayVisuals = [];
+      this.runwayLabels.forEach((o) => o.destroy());
+      this.runwayLabels = [];
+      this.runwayBeams.forEach((o) => o.destroy());
+      this.runwayBeams = [];
+      this.waypointVisuals.forEach((o) => {
+        o.triangle.destroy();
+        o.text.destroy();
       });
+      this.waypointVisuals = [];
     }
 
-    // 初回のみ描画オブジェクトを作成
+    // Create Objects if empty (or cleared above)
     if (this.runwayVisuals.length === 0 && this.airport) {
       this.airport.runways.forEach((rwy) => {
         // Calculate Center from Threshold
@@ -194,9 +219,10 @@ export class Game extends Scene {
         const thSx = this.CX + rwy.x * this.pixelsPerNm;
         const thSy = this.CY - rwy.y * this.pixelsPerNm;
 
-        this.add
+        const label = this.add
           .text(thSx, thSy, rwy.id, { fontSize: "10px", color: "#ffffff" })
           .setOrigin(0.5);
+        this.runwayLabels.push(label);
 
         const beamLength = 15 * this.pixelsPerNm;
         const beamAngle = rwy.heading + 180;
@@ -213,16 +239,20 @@ export class Game extends Scene {
           0.1,
         );
         beam.setOrigin(0, 0);
+        this.runwayBeams.push(beam);
       });
 
       // Waypoint
       this.airport.waypoints.forEach((wp) => {
         const sx = this.CX + wp.x * this.pixelsPerNm;
         const sy = this.CY - wp.y * this.pixelsPerNm;
-        this.add.triangle(sx, sy, 0, -5, 4, 3, -4, 3, 0xaaaaaa).setOrigin(0, 0);
-        this.add
+        const tri = this.add
+          .triangle(sx, sy, 0, -5, 4, 3, -4, 3, 0xaaaaaa)
+          .setOrigin(0, 0);
+        const txt = this.add
           .text(sx, sy + 5, wp.name, { fontSize: "10px", color: "#aaaaaa" })
           .setOrigin(0.5, 0);
+        this.waypointVisuals.push({ triangle: tri, text: txt });
       });
     }
   }
