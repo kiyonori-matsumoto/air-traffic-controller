@@ -39,13 +39,13 @@ export class VideoMap {
             ]
         });
 
-        // Sector Boundary (Hypothetical)
-        this.lines.push({
-            type: 'SECTOR',
-            points: [
-                {x: -40, y: 40}, {x: 40, y: 40}, {x: 40, y: -40}, {x: -40, y: -40}, {x: -40, y: 40}
-            ]
-        });
+        // // Sector Boundary (Hypothetical)
+        // this.lines.push({
+        //     type: 'SECTOR',
+        //     points: [
+        //         {x: -40, y: 40}, {x: 40, y: 40}, {x: 40, y: -40}, {x: -40, y: -40}, {x: -40, y: 40}
+        //     ]
+        // });
         
         // MVA / Restricted Area
         this.lines.push({
