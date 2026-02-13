@@ -19,7 +19,6 @@ export interface AircraftEntity {
 
 export class TrafficManager {
   public aircrafts: AircraftEntity[] = [];
-  private lastSpawnTime: number = 0;
   private selected: Aircraft | null = null;
 
   constructor(
@@ -37,9 +36,8 @@ export class TrafficManager {
     this.pixelsPerNm = pixelsPerNm;
   }
 
-  public update(time: number, dt: number) {
-    // Spawning
-    this.handleSpawning(time);
+  public update(_time: number, dt: number) {
+    // Spawning handled externally by SpawnManager calling spawnAircraft
 
     // Label Overlaps
     this.resolveLabelOverlaps();
@@ -111,39 +109,32 @@ export class TrafficManager {
     });
   }
 
-  private handleSpawning(time: number) {
-    if (time > this.lastSpawnTime + 200000) {
-      this.spawnAircraft();
-      this.lastSpawnTime = time;
-    }
-  }
-
-  public spawnAircraft(spawnX?: number, spawnY?: number) {
-    const isLeft = Math.random() > 0.5;
-    const x = spawnX !== undefined ? spawnX : isLeft ? -60 : 60;
-    const y = spawnY !== undefined ? spawnY : (Math.random() - 0.5) * 60;
-    const heading =
-      spawnX !== undefined
-        ? Math.floor(Math.random() * 360)
-        : isLeft
-          ? 90 + Math.floor((Math.random() - 0.5) * 60)
-          : 270 + Math.floor((Math.random() - 0.5) * 60);
-    const altitude = 10000 + Math.floor(Math.random() * 20) * 1000;
-    const speed = 300 + Math.floor(Math.random() * 20) * 10;
-    const callsign =
-      "JAL" +
-      Math.floor(Math.random() * 1000)
-        .toString()
-        .padStart(3, "0");
-
+  public spawnAircraft(config: {
+    callsign: string;
+    x: number;
+    y: number;
+    heading: number;
+    altitude: number;
+    speed: number;
+    destination?: string;
+  }) {
     const rand = Math.random();
     let wake = "M";
     if (rand > 0.95) wake = "S";
     else if (rand > 0.75) wake = "H";
     else if (rand < 0.2) wake = "L";
 
-    const ac = new Aircraft(callsign, x, y, speed, heading, altitude, wake);
+    const ac = new Aircraft(
+      config.callsign,
+      config.x,
+      config.y,
+      config.speed,
+      config.heading,
+      config.altitude,
+      wake,
+    );
     ac.ownership = "HANDOFF_OFFERED";
+    // TODO: Set destination if provided? Aircraft model might need update to support initial waypoint.
 
     const entity = this.createAircraftContainer(ac);
     this.aircrafts.push(entity);

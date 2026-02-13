@@ -74,7 +74,7 @@ export class Runway {
     let angleDiff = Math.abs(atcAngle - entryHeading);
     if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
-    if (angleDiff > 3) return false; // 3度以上のコースズレはキャプチャ不可
+    if (angleDiff > 5) return false; // 5度以上のコースズレはキャプチャ不可
 
     return true;
   }
@@ -102,6 +102,7 @@ export class Airport {
   // -> 35.542506, 139.803150
   public centerLat: number;
   public centerLon: number;
+  public readonly magneticVariation: number = -7.0; // West 7 degrees (approx RJTT)
 
   constructor(
     name: string,

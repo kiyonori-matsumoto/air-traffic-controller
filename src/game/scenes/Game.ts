@@ -6,6 +6,7 @@ import { VideoMap } from "../../models/VideoMap";
 import { AudioManager } from "../../managers/AudioManager";
 import { CommandSystem } from "../../managers/CommandSystem";
 import { TrafficManager } from "../../managers/TrafficManager";
+import { SpawnManager } from "../../managers/SpawnManager";
 import { UIManager } from "../../managers/UIManager";
 
 export class Game extends Scene {
@@ -47,6 +48,7 @@ export class Game extends Scene {
   private audioManager: AudioManager;
   private commandSystem: CommandSystem;
   private trafficManager: TrafficManager;
+  private spawnManager: SpawnManager;
 
   create() {
     // Initial Center
@@ -72,6 +74,8 @@ export class Game extends Scene {
       this.pixelsPerNm,
       (ac) => this.selectAircraft(ac),
     );
+    this.spawnManager = new SpawnManager(this.trafficManager);
+    this.spawnManager.setMode("SCENARIO");
     this.commandSystem = new CommandSystem(this.airport);
 
     // Radar Initialization
@@ -108,12 +112,12 @@ export class Game extends Scene {
       },
     );
 
-    // 初期状態で3台程度スポーン (画面内にランダム配置)
-    for (let i = 0; i < 3; i++) {
-      const rx = (Math.random() - 0.5) * 80; // -40 ~ 40 NM
-      const ry = (Math.random() - 0.5) * 60; // -30 ~ 30 NM
-      this.trafficManager.spawnAircraft(rx, ry);
-    }
+    // 初期状態で3台程度スポーン (画面内にランダム配置) - REMOVED (Handled by SpawnManager)
+    // for (let i = 0; i < 3; i++) {
+    //   const rx = (Math.random() - 0.5) * 80; // -40 ~ 40 NM
+    //   const ry = (Math.random() - 0.5) * 60; // -30 ~ 30 NM
+    //   this.trafficManager.spawnAircraft(rx, ry);
+    // }
 
     this.audioManager = new AudioManager();
   }
@@ -337,6 +341,7 @@ export class Game extends Scene {
     const dt = (delta / 1000) * this.timeScale;
 
     this.trafficManager.update(time, dt);
+    this.spawnManager.update(dt);
 
     // 0.5 レーダー更新
     const radarUpdate = this.radar.update(dt);
