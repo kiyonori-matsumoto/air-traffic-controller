@@ -2,6 +2,7 @@ import { Scene } from "phaser";
 import { Aircraft } from "../models/Aircraft";
 import { Airport } from "../models/Airport";
 import { UIManager } from "./UIManager";
+import { ScoreManager } from "./ScoreManager";
 
 export interface AircraftEntity {
   logic: Aircraft;
@@ -30,7 +31,10 @@ export class TrafficManager {
     private pixelsPerNm: number,
     private onSelectAircraft: (ac: Aircraft | null) => void,
     private uiManager: UIManager,
+    private scoreManager: ScoreManager,
   ) {}
+
+  private activeViolations: Set<string> = new Set();
 
   public updateScreenConfig(cx: number, cy: number, pixelsPerNm: number) {
     this.cx = cx;
@@ -126,7 +130,8 @@ export class TrafficManager {
     heading: number;
     altitude: number;
     speed: number;
-    destination?: string;
+    origin: string;
+    destination: string;
   }) {
     const rand = Math.random();
     let wake = "M";
@@ -141,6 +146,8 @@ export class TrafficManager {
       config.speed,
       config.heading,
       config.altitude,
+      config.origin,
+      config.destination,
       wake,
     );
     ac.ownership = "HANDOFF_OFFERED";
@@ -365,11 +372,39 @@ export class TrafficManager {
         if (dist < requiredSep) {
           this.setAircraftColor(ac1, 0xff0000, "#ff0000");
           this.setAircraftColor(ac2, 0xff0000, "#ff0000");
+
+          // Report Violation if new
+          const pairId = [ac1.logic.callsign, ac2.logic.callsign]
+            .sort()
+            .join("-");
+          if (!this.activeViolations.has(pairId)) {
+            this.activeViolations.add(pairId);
+            this.scoreManager.reportSeparationViolation();
+
+            // Optional: Audio alert?
+            console.log(`Separation Violation: ${pairId}`);
+          }
         } else if (dist < requiredSep + 1.5) {
-          // check current color? logic needs access to style?
-          // assuming simple overwrite for now
+          // Warning Range
           this.setAircraftColor(ac1, 0xffff00, "#ffff00");
           this.setAircraftColor(ac2, 0xffff00, "#ffff00");
+
+          // Clear violation if previously violated but now just warning?
+          // No, only clear when fully safe or warning is still unsafe?
+          // Let's clear violation only when dist > requiredSep (which is true here)
+          const pairId = [ac1.logic.callsign, ac2.logic.callsign]
+            .sort()
+            .join("-");
+          if (this.activeViolations.has(pairId)) {
+            this.activeViolations.delete(pairId);
+          }
+        } else {
+          const pairId = [ac1.logic.callsign, ac2.logic.callsign]
+            .sort()
+            .join("-");
+          if (this.activeViolations.has(pairId)) {
+            this.activeViolations.delete(pairId);
+          }
         }
       }
     }

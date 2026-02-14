@@ -71,8 +71,7 @@ body {
     text-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
     pointer-events: auto;
     position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0%;
 }
 
 
@@ -236,66 +235,163 @@ body {
     margin-right: 4px;
 }
 
-/* Flight Progress Strips */
-.flight-strip {
-    background: rgba(40, 40, 40, 0.7);
-    border-left: 4px solid #00ff41;
-    padding: 8px;
-    font-size: 0.85rem;
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 4px;
-    cursor: pointer;
-    transition: background 0.2s, border-left-color 0.2s;
-    margin-bottom: 4px;
+/* --- Flight Progress Strips (EFS Redesign) --- */
+
+#strips-panel {
+    /* Container styling adjusted in HTML, but ensuring scroll behavior */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
+.flight-strip {
+    /* Professional / Stoic Design */
+    background: rgba(20, 30, 40, 0.9);
+    border: 1px solid rgba(80, 100, 120, 0.5);
+    border-left: 4px solid #555; /* Default status color */
+    color: #e0e0e0;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.75rem; /* Reduced from 0.85rem */
+    margin-bottom: 5px;
+    padding: 2px;
+    cursor: pointer;
+    transition: all 0.1s ease-in-out;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+
+    /* Grid Layout */
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr 1fr 1.2fr; /* 5 Columns */
+    grid-template-rows: auto;
+    gap: 1px;
+    background-color: #333; /* Gap color effectively becomes border lines */
+}
+
+/* Individual Cells simulating a paper strip layout */
+.strip-block {
+    background: rgba(20, 30, 40, 1);
+    padding: 2px 4px; /* Reduced padding */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Block 1: ID */
+.strip-block-id {
+    border-right: 1px solid #444;
+}
+.strip-callsign {
+    font-weight: 700;
+    font-size: 0.85rem; /* Reduced from 1rem */
+    color: #fff;
+    letter-spacing: 0.5px;
+}
+.strip-type {
+    font-size: 0.65rem; /* Reduced from 0.75rem */
+    color: #aaa;
+}
+.strip-squawk {
+    font-size: 0.65rem; /* Reduced from 0.75rem */
+    color: #888;
+}
+
+/* Block 2: Altitude */
+.strip-block-alt {
+    text-align: center;
+    border-right: 1px solid #444;
+}
+.strip-val-target {
+    font-size: 0.9rem; /* Reduced from 1rem */
+    font-weight: 700;
+    color: #00ff41;
+}
+.strip-val-current {
+    font-size: 0.7rem; /* Reduced from 0.75rem */
+    color: #aaa;
+}
+.strip-trend {
+    font-size: 0.65rem; /* Reduced from 0.7rem */
+    color: #00ff41;
+    height: 9px;
+}
+
+/* Block 3: Speed / Heading */
+.strip-block-spd {
+    font-size: 0.7rem; /* Reduced from 0.8rem */
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border-right: 1px solid #444;
+}
+.strip-row-sm {
+    display: flex;
+    justify-content: space-between;
+}
+.label {
+    color: #666;
+    font-size: 0.6rem; /* Reduced from 0.7rem */
+}
+
+/* Block 4: Route (FROM/TO) */
+.strip-block-route {
+    font-size: 0.65rem; /* Reduced from 0.7rem */
+    border-right: 1px solid #444;
+    text-align: center;
+    color: #bbb;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.strip-route-val {
+    color: #fff;
+    font-weight: bold;
+}
+
+/* Block 5: ETA / Clear */
+.strip-block-misc {
+    text-align: right;
+}
+.strip-eta {
+    font-weight: 700;
+    color: #fff;
+    font-size: 0.8rem; /* Explicitly set smaller */
+}
+.strip-app {
+    font-size: 0.6rem; /* Reduced from 0.7rem */
+    color: #00ffff; /* Approach Type */
+}
+
+/* States */
 .flight-strip:hover {
-    background: rgba(60, 60, 60, 0.8);
+    background-color: #334455;
+    border-color: #8899aa;
 }
 
 .flight-strip.selected {
-    background: rgba(60, 80, 60, 0.9);
-    border-left-color: #ffff00;
+    border: 1px solid #fff;
+    border-left: 4px solid #00ff41;
+    box-shadow: 0 0 8px rgba(0, 255, 65, 0.4);
+    background: rgba(30, 40, 50, 1);
 }
 
-.strip-header {
-    display: flex;
-    justify-content: space-between;
-    font-weight: bold;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 2px;
-    margin-bottom: 2px;
+.flight-strip.warning {
+    border-left-color: #ff4444;
+    background: rgba(60, 20, 20, 0.9);
 }
 
-.strip-callsign {
-    color: #00ff41;
-    font-size: 1rem;
+.flight-strip.cleared {
+    border-left-color: #00ffff;
 }
 
-.strip-eta {
-    color: #ccc;
-    font-size: 0.8rem;
+/* Animations */
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.2; }
+    100% { opacity: 1; }
 }
-
-.strip-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4px;
-    color: #aaa;
-    font-size: 0.75rem;
-}
-
-.strip-row {
-    display: flex;
-    justify-content: space-between;
-}
-
-.strip-val {
-    color: #fff;
-    margin-left: 4px;
+.blink {
+    animation: blink 1s infinite;
 }
 
 .strip-updated {
     color: #ffff00 !important;
+    transition: color 0.5s;
 }

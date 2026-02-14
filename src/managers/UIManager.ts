@@ -8,6 +8,7 @@ export class UIManager {
   private btnCloseHelp: HTMLElement | null;
   private radarRangeDisplay: HTMLElement | null;
   private stripsPanel: HTMLElement | null;
+  private scoreDisplay: HTMLElement | null;
 
   constructor(
     private callbacks: {
@@ -27,6 +28,7 @@ export class UIManager {
     this.btnCloseHelp = document.getElementById("btn-close-help");
     this.radarRangeDisplay = document.getElementById("radar-range-display");
     this.stripsPanel = document.getElementById("strips-panel");
+    this.scoreDisplay = document.getElementById("score-display");
 
     this.setupEventListeners();
   }
@@ -34,6 +36,14 @@ export class UIManager {
   public updateRadarRange(range: number) {
     if (this.radarRangeDisplay) {
       this.radarRangeDisplay.innerText = `${range}NM`;
+    }
+  }
+
+  public updateScore(score: number) {
+    if (this.scoreDisplay) {
+      this.scoreDisplay.innerText = `SCORE: ${score}`;
+      if (score < 0) this.scoreDisplay.style.color = "#ff4444";
+      else this.scoreDisplay.style.color = "#fff";
     }
   }
 
@@ -53,23 +63,54 @@ export class UIManager {
       ? `${ac.estimatedArrivalTime.getHours().toString().padStart(2, "0")}:${ac.estimatedArrivalTime.getMinutes().toString().padStart(2, "0")}`
       : "--:--";
 
-    // Altitude (FL)
     const alt = Math.floor(ac.altitude / 100);
-    // Speed
+    const targetAlt = Math.floor(ac.targetAltitude / 100);
     const spd = Math.floor(ac.speed);
-    // Heading
     const hdg = Math.floor(ac.heading);
 
+    // Trend Arrow
+    let trend = "";
+    if (ac.altitude < ac.targetAltitude - 100) trend = "↑";
+    else if (ac.altitude > ac.targetAltitude + 100) trend = "↓";
+
     div.innerHTML = `
-        <div class="strip-header">
-            <span class="strip-callsign">${ac.callsign}</span>
-            <span class="strip-eta" id="strip-${ac.callsign}-eta">${eta}</span>
+        <!-- Block 1: ID -->
+        <div class="strip-block strip-block-id">
+            <div class="strip-callsign">${ac.callsign}</div>
+            <div class="strip-type">${ac.wakeTurbulence}</div>
+            <div class="strip-squawk">${ac.squawk}</div>
         </div>
-        <div class="strip-details">
-            <div class="strip-row"><span>ALT</span><span class="strip-val" id="strip-${ac.callsign}-alt">${alt}</span></div>
-            <div class="strip-row"><span>SPD</span><span class="strip-val" id="strip-${ac.callsign}-spd">${spd}</span></div>
-            <div class="strip-row"><span>HDG</span><span class="strip-val" id="strip-${ac.callsign}-hdg">${hdg}</span></div>
-            <div class="strip-row"><span>TYP</span><span class="strip-val">${ac.wakeTurbulence}</span></div>
+
+        <!-- Block 2: Altitude -->
+        <div class="strip-block strip-block-alt">
+            <div class="strip-val-target" id="strip-${ac.callsign}-talt">${targetAlt}</div>
+            <div class="strip-val-current" id="strip-${ac.callsign}-alt">${alt}</div>
+            <div class="strip-trend ${trend ? "blink" : ""}" id="strip-${ac.callsign}-trend">${trend}</div>
+        </div>
+
+        <!-- Block 3: SPD/HDG -->
+        <div class="strip-block strip-block-spd">
+            <div class="strip-row-sm">
+                <span class="label">S</span>
+                <span id="strip-${ac.callsign}-spd">${spd}</span>
+            </div>
+            <div class="strip-row-sm">
+                <span class="label">H</span>
+                <span id="strip-${ac.callsign}-hdg">${hdg}</span>
+            </div>
+        </div>
+
+        <!-- Block 4: Route -->
+        <div class="strip-block strip-block-route">
+            <div><span class="strip-route-val">${ac.origin}</span></div>
+            <div style="font-size: 0.6rem; color: #666;">to</div>
+            <div><span class="strip-route-val">${ac.destination}</span></div>
+        </div>
+
+        <!-- Block 5: ETA/APP -->
+        <div class="strip-block strip-block-misc">
+            <div class="strip-eta" id="strip-${ac.callsign}-eta">${eta}</div>
+            <div class="strip-app">${ac.approachType}</div>
         </div>
     `;
 
@@ -79,28 +120,47 @@ export class UIManager {
   public updateStrip(ac: Aircraft) {
     const etaEl = document.getElementById(`strip-${ac.callsign}-eta`);
     const altEl = document.getElementById(`strip-${ac.callsign}-alt`);
+    const tAltEl = document.getElementById(`strip-${ac.callsign}-talt`);
+    const trendEl = document.getElementById(`strip-${ac.callsign}-trend`);
+
     const spdEl = document.getElementById(`strip-${ac.callsign}-spd`);
     const hdgEl = document.getElementById(`strip-${ac.callsign}-hdg`);
 
+    // ETA
     if (etaEl && ac.estimatedArrivalTime) {
-      // ETA Update
       const etaStr = `${ac.estimatedArrivalTime.getHours().toString().padStart(2, "0")}:${ac.estimatedArrivalTime.getMinutes().toString().padStart(2, "0")}`;
       if (etaEl.innerText !== etaStr) etaEl.innerText = etaStr;
-
-      // Check Delay (if ETA > STA + 5min ?)
-      // For now just display
     }
 
-    if (altEl) {
+    // Altitude
+    if (altEl && tAltEl && trendEl) {
       const alt = Math.floor(ac.altitude / 100).toString();
-      if (altEl.innerText !== alt) altEl.innerText = alt;
+      const tAlt = Math.floor(ac.targetAltitude / 100).toString();
 
-      // Hightlight if changing?
-      if (ac.altitude !== ac.targetAltitude)
-        altEl.classList.add("strip-updated");
-      else altEl.classList.remove("strip-updated");
+      if (altEl.innerText !== alt) altEl.innerText = alt;
+      if (tAltEl.innerText !== tAlt) {
+        tAltEl.innerText = tAlt;
+        tAltEl.classList.add("strip-updated");
+        setTimeout(() => tAltEl.classList.remove("strip-updated"), 2000);
+      }
+
+      // Trend
+      let trend = "";
+      let blink = false;
+      if (ac.altitude < ac.targetAltitude - 50) {
+        trend = "↑";
+        blink = true;
+      } else if (ac.altitude > ac.targetAltitude + 50) {
+        trend = "↓";
+        blink = true;
+      }
+
+      if (trendEl.innerText !== trend) trendEl.innerText = trend;
+      if (blink) trendEl.classList.add("blink");
+      else trendEl.classList.remove("blink");
     }
 
+    // Speed
     if (spdEl) {
       const spd = Math.floor(ac.speed).toString();
       if (spdEl.innerText !== spd) spdEl.innerText = spd;
@@ -110,6 +170,7 @@ export class UIManager {
       else spdEl.classList.remove("strip-updated");
     }
 
+    // Heading
     if (hdgEl) {
       const hdg = Math.floor(ac.heading).toString();
       if (hdgEl.innerText !== hdg) hdgEl.innerText = hdg;
@@ -117,6 +178,19 @@ export class UIManager {
       if (Math.abs(ac.heading - ac.targetHeading) > 1)
         hdgEl.classList.add("strip-updated");
       else hdgEl.classList.remove("strip-updated");
+    }
+
+    // Highlight based on Separation (Warning)
+    const strip = document.getElementById(`strip-${ac.callsign}`);
+    if (strip) {
+      if (
+        ac.separationStatus === "VIOLATION" ||
+        ac.separationStatus === "WARNING"
+      ) {
+        strip.classList.add("warning");
+      } else {
+        strip.classList.remove("warning");
+      }
     }
   }
 

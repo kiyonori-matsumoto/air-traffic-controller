@@ -36,6 +36,12 @@ export class Aircraft {
   scheduledArrivalTime: Date;
   estimatedArrivalTime: Date;
 
+  // EFS用追加プロパティ
+  squawk: string; // 4桁の数値文字列 (例: "1234")
+  approachType: string; // 進入方式 (例: "ILS Z 34R", "VISUAL")
+  origin: string;
+  destination: string;
+
   constructor(
     callsign: string,
     x: number,
@@ -43,6 +49,8 @@ export class Aircraft {
     speed: number,
     heading: number,
     altitude: number,
+    origin: string,
+    destination: string,
     wakeTurbulence: string = "M",
   ) {
     this.callsign = callsign;
@@ -71,6 +79,13 @@ export class Aircraft {
     const flightTimeMin = 10 + Math.random() * 20; // 10-30分
     this.scheduledArrivalTime = new Date(now.getTime() + flightTimeMin * 60000);
     this.estimatedArrivalTime = new Date(this.scheduledArrivalTime); // 初期値はSTAと同じ
+
+    // EFS初期化
+    // ランダムなSquawk (1200, 7500, 7600, 7700を除く簡易生成)
+    this.squawk = Math.floor(1000 + Math.random() * 6000).toString();
+    this.approachType = "ILS Z 34R"; // デフォルト
+    this.origin = origin;
+    this.destination = destination;
   }
 
   // 距離計算 (NM)

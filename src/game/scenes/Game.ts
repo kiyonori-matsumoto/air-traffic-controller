@@ -8,6 +8,7 @@ import { CommandSystem } from "../../managers/CommandSystem";
 import { TrafficManager } from "../../managers/TrafficManager";
 import { SpawnManager } from "../../managers/SpawnManager";
 import { UIManager } from "../../managers/UIManager";
+import { ScoreManager } from "../../managers/ScoreManager";
 
 export class Game extends Scene {
   // ... (properties)
@@ -47,8 +48,10 @@ export class Game extends Scene {
 
   private audioManager: AudioManager;
   private commandSystem: CommandSystem;
+
   private trafficManager: TrafficManager;
   private spawnManager: SpawnManager;
+  private scoreManager: ScoreManager;
 
   create() {
     // Initial Center
@@ -81,6 +84,10 @@ export class Game extends Scene {
       },
     });
 
+    this.scoreManager = new ScoreManager((newScore) => {
+      this.uiManager.updateScore(newScore);
+    });
+
     this.trafficManager = new TrafficManager(
       this,
       this.airport,
@@ -89,6 +96,7 @@ export class Game extends Scene {
       this.pixelsPerNm,
       (ac) => this.selectAircraft(ac),
       this.uiManager,
+      this.scoreManager, // Pass to TrafficManager
     );
 
     // this.trafficManager.setRotationCorrection(this.magVarCorrection);
@@ -351,6 +359,7 @@ export class Game extends Scene {
               // Apply updates
               result.pendingUpdates.forEach((update) => update());
               if (ac.ownership === "HANDOFF_COMPLETE") {
+                this.scoreManager.addHandoffScore();
                 this.selectAircraft(null);
               } else {
                 this.uiManager.updateSidebar(ac);
@@ -418,6 +427,20 @@ export class Game extends Scene {
       Math.sin(beamRad) * beamLen,
     );
     this.radarBeam.setStrokeStyle(2, 0x004400, 0.5); // 暗い緑
+
+    // Check Scenario Clear
+    this.checkScenarioClear();
+  }
+
+  private checkScenarioClear() {
+    // Simple Goal: Score >= 500
+    // In future, SpawnManager could hold the goal (e.g. number of planes handled)
+    if (this.scoreManager.getScore() >= 500) {
+      this.scene.start("ScoreScene", {
+        score: this.scoreManager.getScore(),
+        stats: this.scoreManager.getStats(),
+      });
+    }
   }
 
   // --- End of Moved Methods ---

@@ -223,7 +223,6 @@ export class Airport {
         name: "GODIN",
         lat: 36.407028, // 36°24'25.3"N
         lon: 140.282194, // 140°16'55.9"E
-        z: 8000, // MHA 8000 [cite: 124, 359]
       },
       {
         name: "CHIPS",

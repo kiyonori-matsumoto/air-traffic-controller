@@ -6,6 +6,7 @@ export interface SpawnEvent {
   model: string; // 'B777', 'A320' etc (for future use)
   type: "ARRIVAL" | "DEPARTURE";
   entryPoint: string; // Name of entry point or heading
+  origin: string; // Origin Airport
   destination: string; // Name of first waypoint
   altitude: number;
   speed: number;
@@ -22,9 +23,24 @@ export class SpawnManager {
   // Virtual Entry Points (Bearing from Airport Center, Distance 80NM)
   // We will calculate X/Y dynamically based on these.
   private static ENTRY_STREAMS = [
-    { name: "SOUTH_ARRIVAL", bearing: 190, target: "AKSEL" }, // From South West
-    { name: "EAST_ARRIVAL", bearing: 110, target: "TT456" }, // From South East
-    { name: "NORTH_ARRIVAL", bearing: 10, target: "CREAM" }, // From North (Hypothetical)
+    {
+      name: "SOUTH_ARRIVAL",
+      bearing: 190,
+      target: "AKSEL",
+      origins: ["RJFK", "RJFF", "ROAH"],
+    }, // From South West
+    {
+      name: "EAST_ARRIVAL",
+      bearing: 110,
+      target: "TT456",
+      origins: ["RJAA", "KLAX", "PHNL"],
+    }, // From South East
+    {
+      name: "NORTH_ARRIVAL",
+      bearing: 10,
+      target: "CREAM",
+      origins: ["RJCC", "RJGG", "UUWW"],
+    }, // From North
   ];
 
   constructor(trafficManager: TrafficManager) {
@@ -133,9 +149,11 @@ export class SpawnManager {
       x: x,
       y: y,
       heading: heading,
+      heading: heading,
       altitude: event.altitude,
       speed: event.speed,
-      destination: event.destination,
+      origin: event.origin,
+      destination: event.destination || "RJTT", // Default destination if missing (though interface says string)
     });
   }
 
@@ -164,13 +182,17 @@ export class SpawnManager {
     const flightNum = Math.floor(Math.random() * 900) + 100;
     const airline = airlines[Math.floor(Math.random() * airlines.length)];
 
+    const origin =
+      stream.origins[Math.floor(Math.random() * stream.origins.length)];
+
     const event: SpawnEvent = {
       time: this.gameTime + 1, // Spawn almost immediately
       flightId: `${airline}${flightNum}`,
       model: "B777",
       type: "ARRIVAL",
       entryPoint: stream.name,
-      destination: stream.target,
+      origin: origin,
+      destination: "RJTT",
       altitude: 10000 + Math.floor(Math.random() * 5) * 1000, // 10000-14000
       speed: 280 + Math.floor(Math.random() * 4) * 10,
     };
@@ -188,7 +210,8 @@ export class SpawnManager {
         model: "B737",
         type: "ARRIVAL",
         entryPoint: "DEBUG_CREAM",
-        destination: "CREAM",
+        origin: "RJCC",
+        destination: "RJTT",
         altitude: 4000,
         speed: 250,
       },
@@ -198,7 +221,8 @@ export class SpawnManager {
         model: "B777",
         type: "ARRIVAL",
         entryPoint: "SOUTH_ARRIVAL",
-        destination: "AKSEL",
+        origin: "ROAH",
+        destination: "RJTT",
         altitude: 12000,
         speed: 300,
       },
@@ -208,7 +232,8 @@ export class SpawnManager {
         model: "B787",
         type: "ARRIVAL",
         entryPoint: "EAST_ARRIVAL",
-        destination: "TT456",
+        origin: "PHNL",
+        destination: "RJTT",
         altitude: 11000,
         speed: 290,
       },
@@ -218,7 +243,8 @@ export class SpawnManager {
         model: "B737",
         type: "ARRIVAL",
         entryPoint: "SOUTH_ARRIVAL",
-        destination: "AKSEL",
+        origin: "RJFF",
+        destination: "RJTT",
         altitude: 13000,
         speed: 310,
       },
@@ -228,7 +254,8 @@ export class SpawnManager {
         model: "A350",
         type: "ARRIVAL",
         entryPoint: "NORTH_ARRIVAL",
-        destination: "CREAM",
+        origin: "RJCC",
+        destination: "RJTT",
         altitude: 10000,
         speed: 280,
       },
