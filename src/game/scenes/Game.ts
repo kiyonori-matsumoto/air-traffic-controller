@@ -88,7 +88,7 @@ export class Game extends Scene {
     this.radarBeam.setOrigin(0, 0);
 
     // Video Map & Range Rings Initialization
-    this.videoMap = new VideoMap();
+    this.videoMap = new VideoMap(this.airport);
     this.videoMapGraphics = this.add.graphics();
     this.rangeRingsGraphics = this.add.graphics();
 
