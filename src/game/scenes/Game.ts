@@ -35,7 +35,7 @@ export class Game extends Scene {
   private runwayBeams: Phaser.GameObjects.Shape[] = [];
   private waypointVisuals: {
     triangle: Phaser.GameObjects.Shape;
-    text: Phaser.GameObjects.Text;
+    text?: Phaser.GameObjects.Text;
   }[] = [];
 
   private timeScale: number = 1;
@@ -225,7 +225,7 @@ export class Game extends Scene {
       this.runwayBeams = [];
       this.waypointVisuals.forEach((o) => {
         o.triangle.destroy();
-        o.text.destroy();
+        o.text?.destroy();
       });
       this.waypointVisuals = [];
     }
@@ -286,10 +286,14 @@ export class Game extends Scene {
         const tri = this.add
           .triangle(sx, sy, 0, -5, 4, 3, -4, 3, 0xaaaaaa)
           .setOrigin(0, 0);
-        const txt = this.add
-          .text(sx, sy + 5, wp.name, { fontSize: "10px", color: "#aaaaaa" })
-          .setOrigin(0.5, 0);
-        this.waypointVisuals.push({ triangle: tri, text: txt });
+        if (!wp.name.startsWith("TT")) {
+          const txt = this.add
+            .text(sx, sy + 5, wp.name, { fontSize: "10px", color: "#aaaaaa" })
+            .setOrigin(0.5, 0);
+          this.waypointVisuals.push({ triangle: tri, text: txt });
+        } else {
+          this.waypointVisuals.push({ triangle: tri });
+        }
       });
     }
   }
