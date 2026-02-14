@@ -16,8 +16,8 @@ export class Game extends Scene {
   msg_text: Phaser.GameObjects.Text;
 
   // Radar Settings
-  private readonly RADAR_RANGE_NM = 80; // 表示半径 (NM)
-  private pixelsPerNm: number; // 計算されるスケール (px/NM)
+  private radarRangeNm = 80; // Default Range
+  private pixelsPerNm: number; // Scale
 
   private CX: number;
   private CY: number;
@@ -58,12 +58,10 @@ export class Game extends Scene {
     // Listen for Resize
     this.scale.on("resize", this.handleResize, this);
 
-    // スケール計算
-    // Scale based on Height to keep radar fitting
-    this.pixelsPerNm = (this.CY * 0.9) / this.RADAR_RANGE_NM;
+    // Initial Scale
+    this.updateScale();
 
-    // 空港・滑走路のセットアップ
-    // Runways are now initialized inside Airport class
+    // Setup Airport
     this.airport = new Airport("RJTT");
     // Calculate Rotation Correction (Negative Variation -> Positive Rotation)
     // Variation is -7. We want to rotate +7 to make True 353 (Mag 0) point Up.
@@ -92,38 +90,71 @@ export class Game extends Scene {
     this.videoMapGraphics = this.add.graphics();
     this.rangeRingsGraphics = this.add.graphics();
 
-    // Render Initial Map/Rings
-    this.redrawVideoMap();
-    this.redrawRangeRings();
-    this.updateStaticObjectPositions();
-
-    this.camera = this.cameras.main;
-    this.camera.setBackgroundColor(0x0a0a0a);
-
-    // Initialize UIManager
     this.uiManager = new UIManager({
       onCommand: (cmd) => this.handleCommand(cmd),
-      onTimeScaleChange: (scale) => (this.timeScale = scale),
+      onTimeScaleChange: (scale) => {
+        this.timeScale = scale;
+      },
+      onZoom: (dir) => this.handleZoom(dir),
     });
 
     this.input.on(
       "pointerdown",
       (_pointer: Phaser.Input.Pointer, currentlyOver: any[]) => {
         if (currentlyOver.length === 0) {
-          // Deselect if clicking empty space, regardless of focus
           this.selectAircraft(null);
         }
       },
     );
 
-    // 初期状態で3台程度スポーン (画面内にランダム配置) - REMOVED (Handled by SpawnManager)
-    // for (let i = 0; i < 3; i++) {
-    //   const rx = (Math.random() - 0.5) * 80; // -40 ~ 40 NM
-    //   const ry = (Math.random() - 0.5) * 60; // -30 ~ 30 NM
-    //   this.trafficManager.spawnAircraft(rx, ry);
-    // }
+    // Render Initial Map/Rings
+    this.redrawVideoMap();
+    this.redrawRangeRings();
+    this.updateStaticObjectPositions();
 
+    this.camera = this.cameras.main;
+    this.background = this.add
+      .image(0, 0, "bg")
+      .setDepth(-100)
+      .setVisible(false); // Placeholder
+    this.cameras.main.setBackgroundColor("#000000");
+
+    // Initial Scale
+    this.updateScale();
+    this.refreshRadarView();
+
+    // Audio
     this.audioManager = new AudioManager();
+  }
+
+  private handleZoom(direction: number) {
+    // Zoom In (decrease range) or Zoom Out (increase range)
+    const step = 10;
+    // Direction: 1 = Zoom In (Range decreases), -1 = Zoom Out (Range increases)
+    let newRange = this.radarRangeNm - direction * step;
+
+    // Clamp
+    if (newRange < 10) newRange = 10;
+    if (newRange > 80) newRange = 80;
+
+    if (newRange !== this.radarRangeNm) {
+      this.radarRangeNm = newRange;
+      this.updateScale();
+      this.refreshRadarView();
+    }
+  }
+
+  private updateScale() {
+    // Scale based on Height to keep radar fitting
+    this.pixelsPerNm = (this.CY * 0.9) / this.radarRangeNm;
+  }
+
+  private refreshRadarView() {
+    this.trafficManager.updateScreenConfig(this.CX, this.CY, this.pixelsPerNm);
+    this.redrawVideoMap();
+    this.redrawRangeRings();
+    this.updateStaticObjectPositions(true); // destroy and recreate static objects
+    this.uiManager.updateRadarRange(this.radarRangeNm);
   }
 
   private handleResize(gameSize: Phaser.Structs.Size) {
@@ -133,14 +164,12 @@ export class Game extends Scene {
     this.camera.setViewport(0, 0, gameSize.width, gameSize.height);
 
     // Recalculate Scale
-    this.pixelsPerNm = (this.CY * 0.9) / this.RADAR_RANGE_NM;
+    this.updateScale();
 
     // Update Managers
     this.trafficManager.updateScreenConfig(this.CX, this.CY, this.pixelsPerNm);
 
-    this.redrawVideoMap();
-    this.redrawRangeRings();
-    this.updateStaticObjectPositions(true);
+    this.refreshRadarView();
   }
 
   private redrawVideoMap() {
@@ -178,7 +207,7 @@ export class Game extends Scene {
     this.rangeRingsGraphics.lineStyle(1, 0x222222, 0.5); // Faint Grey Circles
 
     // Draw rings every 5NM up to current range + margin
-    const maxRing = this.RADAR_RANGE_NM;
+    const maxRing = this.radarRangeNm;
     for (let r = 5; r <= maxRing; r += 5) {
       const radiusPx = r * this.pixelsPerNm;
       this.rangeRingsGraphics.strokeCircle(this.CX, this.CY, radiusPx);

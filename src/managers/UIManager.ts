@@ -6,11 +6,13 @@ export class UIManager {
   private btnHelp: HTMLElement | null;
   private helpModal: HTMLElement | null;
   private btnCloseHelp: HTMLElement | null;
+  private radarRangeDisplay: HTMLElement | null;
 
   constructor(
     private callbacks: {
       onCommand: (cmd: string) => void;
       onTimeScaleChange: (scale: number) => void;
+      onZoom: (direction: number) => void;
     },
   ) {
     // UI References
@@ -21,12 +23,27 @@ export class UIManager {
     this.btnHelp = document.getElementById("btn-help");
     this.helpModal = document.getElementById("help-modal");
     this.btnCloseHelp = document.getElementById("btn-close-help");
+    this.radarRangeDisplay = document.getElementById("radar-range-display");
 
     this.setupEventListeners();
   }
 
+  public updateRadarRange(range: number) {
+    if (this.radarRangeDisplay) {
+      this.radarRangeDisplay.innerText = `${range}NM`;
+    }
+  }
+
   private setupEventListeners() {
     if (!this.inputCommand) return;
+
+    // Zoom Buttons
+    document.getElementById("btn-zoom-in")?.addEventListener("click", () => {
+      this.callbacks.onZoom(1);
+    });
+    document.getElementById("btn-zoom-out")?.addEventListener("click", () => {
+      this.callbacks.onZoom(-1);
+    });
 
     // Speed Buttons
     const speedButtons = ["1", "2", "4"];
