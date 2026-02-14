@@ -10,6 +10,12 @@ export interface CommandResult {
   pendingUpdates: (() => void)[]; // State changes to apply AFTER readback
 }
 
+interface LogBuffers {
+  log: string[];
+  voice: string[];
+  readback: string[];
+}
+
 export class CommandSystem {
   constructor(private airport: Airport) {}
 
@@ -20,10 +26,6 @@ export class CommandSystem {
       pendingUpdates: [],
     };
 
-    const logParts: string[] = [];
-    const voiceParts: string[] = [];
-    const readbackParts: string[] = [];
-
     // 0. Ownership Check
     // Allow 'RADAR CONTACT' even if not owned (to accept handoff)
     if (command !== "RADAR CONTACT" && command !== "RC") {
@@ -33,202 +35,240 @@ export class CommandSystem {
       }
     }
 
-    // 1. Heading (Hxxx)
-    const headingMatch = command.match(/H(\d{3})/);
-    if (headingMatch) {
-      let val = parseInt(headingMatch[1]);
+    const buffers: LogBuffers = {
+      log: [],
+      voice: [],
+      readback: [],
+    };
 
-      // System now assumes Pilot Input = System Heading (True North)
-      const trueHeading = val;
+    // Run independent command handlers (chainable)
+    this.handleHeading(command, ac, result, buffers);
+    this.handleSpeed(command, ac, result, buffers);
+    this.handleAltitude(command, ac, result, buffers);
 
-      result.pendingUpdates.push(() => {
-        ac.targetHeading = trueHeading;
-      });
-
-      // Log uses the Pilot's stated Magnetic heading
-      const phrase = `turn left heading ${val}`;
-      logParts.push(phrase);
-      voiceParts.push(phrase);
-      readbackParts.push(phrase);
-      result.handled = true;
+    // Run exclusive command group (Route / Approach / Direct)
+    // Only one of these should apply at a time
+    if (!this.handleStarClearance(command, ac, result, buffers)) {
+      if (!this.handleIlsClearance(command, ac, result, buffers)) {
+        this.handleDirectTo(command, ac, result, buffers);
+      }
     }
 
-    // 2. Speed (Sxxx)
+    this.handleContactTower(command, ac, result, buffers);
+    this.handleRadarContact(command, ac, result, buffers);
+
+    return this.finalize(result, ac, buffers);
+  }
+
+  private finalize(
+    result: CommandResult,
+    ac: Aircraft,
+    buffers: LogBuffers,
+  ): CommandResult {
+    if (result.handled) {
+      if (!result.atcLog && buffers.log.length > 0) {
+        const logBody = buffers.log.join(", ");
+        result.atcLog = `${ac.callsign} ${logBody}.`;
+      }
+      if (!result.voiceLog && buffers.voice.length > 0) {
+        const logBody = buffers.voice.join(", ");
+        result.voiceLog = `${ac.callsign}, ${logBody}.`;
+      }
+      if (!result.pilotLog && buffers.readback.length > 0) {
+        const rbBody = buffers.readback.join(", ");
+        result.pilotLog = `${rbBody}, ${ac.callsign}`;
+      }
+    }
+    return result;
+  }
+
+  // --- Handlers ---
+
+  private handleHeading(
+    command: string,
+    ac: Aircraft,
+    result: CommandResult,
+    buffers: LogBuffers,
+  ): boolean {
+    const headingMatch = command.match(/H(\d{3})/);
+    if (headingMatch) {
+      const val = parseInt(headingMatch[1]);
+      result.pendingUpdates.push(() => {
+        ac.targetHeading = val;
+      });
+      const phrase = `turn left heading ${val}`;
+      this.addLogs(buffers, phrase, phrase, phrase);
+      result.handled = true;
+      return true;
+    }
+    return false;
+  }
+
+  private handleSpeed(
+    command: string,
+    ac: Aircraft,
+    result: CommandResult,
+    buffers: LogBuffers,
+  ): boolean {
     const speedMatch = command.match(/S(\d{2,3})/);
     if (speedMatch) {
       const val = parseInt(speedMatch[1]);
-
       result.pendingUpdates.push(() => {
         ac.targetSpeed = val;
       });
-
       const phrase = `reduce speed to ${val}`;
-      logParts.push(phrase);
-      voiceParts.push(phrase);
-      readbackParts.push(phrase);
+      this.addLogs(buffers, phrase, phrase, phrase);
       result.handled = true;
+      return true;
     }
+    return false;
+  }
 
-    // 3. Altitude (Axxx, FLxxx)
+  private handleAltitude(
+    command: string,
+    ac: Aircraft,
+    result: CommandResult,
+    buffers: LogBuffers,
+  ): boolean {
     const altMatch = command.match(/A(\d+)/);
     if (altMatch) {
       const val = parseInt(altMatch[1]);
-
       result.pendingUpdates.push(() => {
         ac.targetAltitude = val;
       });
-
       const phrase = `maintain ${val}`;
       const voicePhrase = `climb maintain ${val}`;
-      logParts.push(voicePhrase);
-      voiceParts.push(voicePhrase);
-      readbackParts.push(phrase);
+      this.addLogs(buffers, phrase, voicePhrase, phrase);
       result.handled = true;
+      return true;
     }
 
     const flMatch = command.match(/FL(\d{2,3})/);
     if (flMatch) {
       const val = parseInt(flMatch[1]) * 100;
-
       result.pendingUpdates.push(() => {
         ac.targetAltitude = val;
       });
-
       const phrase = `maintain flight level ${flMatch[1]}`;
       const voicePhrase = `climb maintain flight level ${flMatch[1]}`;
-      logParts.push(voicePhrase);
-      voiceParts.push(voicePhrase);
-      readbackParts.push(phrase);
+      this.addLogs(buffers, phrase, voicePhrase, phrase);
       result.handled = true;
+      return true;
     }
+    return false;
+  }
 
-    // 4. Start / Route Clearance
-    // Pattern: "CLEARED [FIX] VIA [STAR] ARRIVAL" or "DCT [FIX]"
+  private handleStarClearance(
+    command: string,
+    ac: Aircraft,
+    result: CommandResult,
+    buffers: LogBuffers,
+  ): boolean {
     const starMatch = command.match(
       /^CLEARED\s+([A-Z0-9]+)\s+VIA\s+([A-Z0-9]+)\s+ARRIVAL$/,
     );
     if (starMatch) {
       const fixName = starMatch[1];
       const starName = starMatch[2];
-
-      // Debugging: Iterate keys to find match (case insensitive support?)
-      // Assuming strict upper case for now as command is upper case
       const route = this.airport.stars[starName];
 
       if (route) {
         const idx = route.indexOf(fixName);
         if (idx !== -1) {
-          // Valid STAR and Fix
           const newPlan: any[] = [];
-
-          // Add waypoints starting from the fix
           for (let i = idx; i < route.length; i++) {
             const wp = this.airport.getWaypoint(route[i]);
             if (wp) newPlan.push(wp);
           }
-
           result.pendingUpdates.push(() => {
             ac.flightPlan = newPlan;
             ac.activeWaypoint = null;
           });
-
           const phrase = `cleared to ${fixName} via ${starName} arrival`;
-          logParts.push(phrase);
-          voiceParts.push(phrase);
-          readbackParts.push(`cleared via ${starName} arrival`);
+          this.addLogs(
+            buffers,
+            phrase,
+            phrase,
+            `cleared via ${starName} arrival`,
+          );
           result.handled = true;
+          return true;
         } else {
-          // Fix not in STAR
           result.atcLog = `${fixName} is not on ${starName} arrival.`;
-          // Don't set handled=true, let it fall through or return error
-          return result;
+          return true; // Handled as error
         }
       } else {
         result.atcLog = `Unknown arrival: ${starName}`;
-        return result;
+        return true; // Handled as error
       }
-    } else if (
+    }
+    return false;
+  }
+
+  private handleIlsClearance(
+    command: string,
+    ac: Aircraft,
+    result: CommandResult,
+    buffers: LogBuffers,
+  ): boolean {
+    if (
       command === "CLEARED ILS Z RWY34R" ||
       command === "ILS Z 34R" ||
       command === "C I Z 34R"
     ) {
-      // ILS Approach Clearance
-      // Route: CREAM -> CLOAK -> CAMEL -> CACAO
-      // Logic: Proceed Direct CREAM (Start of Approach), then follow dots.
-      // User requested: "Behavior when issued before CREAM: Propose/Implement appropriate one."
-      // Implementation: Replace Flight Plan with Approach Route.
-      // This implies: "Proceed Direct CREAM, then follow approach."
-
       const approachName = "ILSZ34R";
       const route = this.airport.approaches[approachName];
-
       if (route) {
         const newPlan: any[] = [];
         for (const wpName of route) {
           const wp = this.airport.getWaypoint(wpName);
           if (wp) newPlan.push(wp);
         }
-
         result.pendingUpdates.push(() => {
           ac.flightPlan = newPlan;
-          ac.activeWaypoint = null; // Reset to force re-evaluation (Direct to first WP)
-          // Optionally set state to indicate Approach Cleared?
-          // For now, navigation logic handles "Flying to Waypoint".
-          // Runway.isAligned checks for capture.
+          ac.activeWaypoint = null;
         });
-
         const phrase = "cleared ILS Zulu Runway 34 Right approach";
         const voicePhrase =
           "cleared ILS Zulu Runway 34 Right approach. Proceed direct Cream.";
-        logParts.push(phrase);
-        voiceParts.push(voicePhrase); // Clarify "Direct" in voice
-        readbackParts.push("cleared ILS Zulu Runway 34 Right approach");
+        this.addLogs(buffers, phrase, voicePhrase, phrase);
         result.handled = true;
+        return true;
       } else {
         result.atcLog = "Approach route ILSZ34R not defined.";
+        return true;
       }
-    } else if (command.startsWith("DCT ")) {
-      // ... (Existing DCT logic)
-      let fixName = command.replace("DCT ", "");
+    }
+    return false;
+  }
+
+  private handleDirectTo(
+    command: string,
+    ac: Aircraft,
+    result: CommandResult,
+    buffers: LogBuffers,
+  ): boolean {
+    if (command.startsWith("DCT ")) {
+      const fixName = command.replace("DCT ", "");
       if (fixName) {
         const startWp = this.airport.getWaypoint(fixName);
         if (startWp) {
-          // Check if Fix is part of ANY STAR (Auto-match behavior) - KEEPING for backward compat or shortcuts?
-          // User asked to "distinguish which Waypoint is okay", implying strictness.
-          // Let's modify: "DCT [FIX]" just goes to Fix. If it happens to be on a STAR, fine, but we don't auto-assign the rest unless specified?
-          // Actually, previous logic auto-assigned the STAR if found.
-          // Let's keep "DCT" simple: Proceed Direct to Fix.
-          // If user wants STAR, they must use "CLEARED ... VIA ...".
-          // OR, we keep the auto-discovery but maybe restrict it?
-          // Let's keep DCT as "Direct To" + "Auto-filling subsequent points if implicit".
-
+          // Check STARs for auto-fill (keeping existing logic)
           let routeName = "";
           const newPlan = [startWp];
           let applied = false;
 
-          // STAR Check (Auto-fill)
           for (const starName in this.airport.stars) {
             const route = this.airport.stars[starName];
             const idx = route.indexOf(fixName);
             if (idx !== -1) {
               for (let i = idx + 1; i < route.length; i++) {
-                // ... populate rest
                 const nextWp = this.airport.getWaypoint(route[i]);
                 if (nextWp) newPlan.push(nextWp);
               }
               routeName = `${starName} arrival`;
-              // We won't say "Cleared via STAR" if they just said "DCT".
-              // We'll say "Proceed direct [FIX], then [STAR] arrival?"
-              // For simplicity, let's keep the old behavior but maybe make the log clearer modification isn't requested for DCT.
-              // Actually, user request "clarde CIVIC via AKSEL2C" suggests they WANT to use the explicit syntax.
-              // So I will implement the Explicit Syntax (handled above)
-              // And here, I will leave DCT as is, or maybe remove the auto-star logic if it's confusing?
-              // Let's keep DCT as "Direct + Auto-continue" for convenience, but the new command allows validation.
-
-              const phrase = `cleared via ${starName} arrival`; // Old behavior
-              logParts.push(phrase);
-              voiceParts.push(phrase);
-              readbackParts.push(`cleared via ${routeName}`);
+              const phrase = `cleared via ${starName} arrival`;
+              this.addLogs(buffers, phrase, phrase, `cleared via ${routeName}`);
               applied = true;
               break;
             }
@@ -236,9 +276,7 @@ export class CommandSystem {
 
           if (!applied) {
             const phrase = `proceed direct ${fixName}`;
-            logParts.push(phrase);
-            voiceParts.push(phrase);
-            readbackParts.push(`direct ${fixName}`);
+            this.addLogs(buffers, phrase, phrase, `direct ${fixName}`);
           }
 
           result.pendingUpdates.push(() => {
@@ -246,59 +284,66 @@ export class CommandSystem {
             ac.activeWaypoint = null;
           });
           result.handled = true;
+          return true;
         }
       }
     }
+    return false;
+  }
 
-    // 5. Contact Tower
+  private handleContactTower(
+    command: string,
+    ac: Aircraft,
+    result: CommandResult,
+    buffers: LogBuffers,
+  ): boolean {
     if (command === "CONTACT TOWER" || command === "CT") {
-      // const phrase = `contact tower 118.1. Good day`; // Period for log?
-      // "Contact tower 118.1 Good day"
-      const cleanPhrase = `contact tower 118.1 good day`;
-      logParts.push(cleanPhrase);
-      voiceParts.push(cleanPhrase);
-      readbackParts.push(`contact tower 118.1 good day`);
-
+      const phrase = `contact tower 118.1 good day`;
+      this.addLogs(buffers, phrase, phrase, phrase);
       result.pendingUpdates.push(() => {
         ac.ownership = "HANDOFF_COMPLETE";
       });
       result.handled = true;
+      return true;
     }
+    return false;
+  }
 
-    // 6. Radar Contact (Handoff Accept)
+  private handleRadarContact(
+    command: string,
+    ac: Aircraft,
+    result: CommandResult,
+    buffers: LogBuffers,
+  ): boolean {
     if (command === "RADAR CONTACT" || command === "RC") {
       if (ac.ownership === "HANDOFF_OFFERED") {
         const phrase = `radar contact`;
-        logParts.push(phrase);
-        voiceParts.push(phrase);
-        readbackParts.push(`roger`);
-
+        this.addLogs(buffers, phrase, phrase, "roger");
         result.pendingUpdates.push(() => {
           ac.ownership = "OWNED";
         });
         result.handled = true;
+        return true;
       } else {
         if (ac.ownership === "OWNED") {
           result.atcLog = `${ac.callsign} already under control.`;
         } else {
           result.atcLog = `${ac.callsign} not offering handoff.`;
         }
-        // Return early for this specific error case to show specific message
-        return result;
+        return true; // Handled as error/info
       }
     }
+    return false;
+  }
 
-    // Final Assembly
-    if (result.handled) {
-      // Join parts
-      const logBody = logParts.join(", ");
-      result.atcLog = `${ac.callsign} ${logBody}.`;
-      result.voiceLog = `${ac.callsign}, ${logBody}.`;
-
-      const rbBody = readbackParts.join(", ");
-      result.pilotLog = `${rbBody}, ${ac.callsign}`;
-    }
-
-    return result;
+  private addLogs(
+    buffers: LogBuffers,
+    logText: string,
+    voiceText: string,
+    readbackText: string,
+  ) {
+    buffers.log.push(logText);
+    buffers.voice.push(voiceText);
+    buffers.readback.push(readbackText);
   }
 }
