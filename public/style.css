@@ -57,7 +57,7 @@ body {
     right: 20px;
     height: 40px;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     padding: 0 20px;
     pointer-events: none;
@@ -70,6 +70,9 @@ body {
     color: var(--radar-green);
     text-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
     pointer-events: auto;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 
@@ -231,4 +234,68 @@ body {
 
 .msg .sender {
     margin-right: 4px;
+}
+
+/* Flight Progress Strips */
+.flight-strip {
+    background: rgba(40, 40, 40, 0.7);
+    border-left: 4px solid #00ff41;
+    padding: 8px;
+    font-size: 0.85rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    cursor: pointer;
+    transition: background 0.2s, border-left-color 0.2s;
+    margin-bottom: 4px;
+}
+
+.flight-strip:hover {
+    background: rgba(60, 60, 60, 0.8);
+}
+
+.flight-strip.selected {
+    background: rgba(60, 80, 60, 0.9);
+    border-left-color: #ffff00;
+}
+
+.strip-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+}
+
+.strip-callsign {
+    color: #00ff41;
+    font-size: 1rem;
+}
+
+.strip-eta {
+    color: #ccc;
+    font-size: 0.8rem;
+}
+
+.strip-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    color: #aaa;
+    font-size: 0.75rem;
+}
+
+.strip-row {
+    display: flex;
+    justify-content: space-between;
+}
+
+.strip-val {
+    color: #fff;
+    margin-left: 4px;
+}
+
+.strip-updated {
+    color: #ffff00 !important;
 }

@@ -1,6 +1,7 @@
 import { Scene } from "phaser";
 import { Aircraft } from "../models/Aircraft";
 import { Airport } from "../models/Airport";
+import { UIManager } from "./UIManager";
 
 export interface AircraftEntity {
   logic: Aircraft;
@@ -28,6 +29,7 @@ export class TrafficManager {
     private cy: number,
     private pixelsPerNm: number,
     private onSelectAircraft: (ac: Aircraft | null) => void,
+    private uiManager: UIManager,
   ) {}
 
   public updateScreenConfig(cx: number, cy: number, pixelsPerNm: number) {
@@ -63,6 +65,7 @@ export class TrafficManager {
         ac.visual.destroy();
         // Destroy other components using helper
         this.destroyAircraftVisuals(ac);
+        this.uiManager.removeStrip(ac.logic);
 
         if (this.selected === ac.logic) {
           this.onSelectAircraft(null);
@@ -75,6 +78,7 @@ export class TrafficManager {
       if (dist > 100) {
         ac.visual.destroy();
         this.destroyAircraftVisuals(ac);
+        this.uiManager.removeStrip(ac.logic);
 
         if (this.selected === ac.logic) {
           this.onSelectAircraft(null);
@@ -98,6 +102,7 @@ export class TrafficManager {
 
   public selectAircraft(logic: Aircraft | null) {
     this.selected = logic;
+    this.uiManager.highlightStrip(logic);
     this.aircrafts.forEach((ac) => {
       if (ac.logic === logic) {
         ac.components.highlight.setVisible(true);
@@ -107,6 +112,11 @@ export class TrafficManager {
         ac.components.jRing.setVisible(false);
       }
     });
+  }
+
+  public getAircraftByCallsign(callsign: string): Aircraft | null {
+    const entity = this.aircrafts.find((ac) => ac.logic.callsign === callsign);
+    return entity ? entity.logic : null;
   }
 
   public spawnAircraft(config: {
@@ -146,6 +156,8 @@ export class TrafficManager {
     entity.visual.on("pointerdown", () => {
       this.onSelectAircraft(ac);
     });
+
+    this.uiManager.createStrip(ac);
   }
 
   private createAircraftContainer(ac: Aircraft): AircraftEntity {
@@ -291,6 +303,8 @@ export class TrafficManager {
     // Update Data Block Position
     ac.components.dataText.setPosition(ac.tagOffset.x, ac.tagOffset.y - 2);
     ac.components.callsignText.setPosition(ac.tagOffset.x, ac.tagOffset.y - 15);
+
+    this.uiManager.updateStrip(ac.logic);
   }
 
   // ... Copy isBehind, getWakeSep, checkSeparations, resolveLabelOverlaps ...

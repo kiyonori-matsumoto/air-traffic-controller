@@ -7,12 +7,14 @@ export class UIManager {
   private helpModal: HTMLElement | null;
   private btnCloseHelp: HTMLElement | null;
   private radarRangeDisplay: HTMLElement | null;
+  private stripsPanel: HTMLElement | null;
 
   constructor(
     private callbacks: {
       onCommand: (cmd: string) => void;
       onTimeScaleChange: (scale: number) => void;
       onZoom: (direction: number) => void;
+      onSelect: (callsign: string) => void;
     },
   ) {
     // UI References
@@ -24,6 +26,7 @@ export class UIManager {
     this.helpModal = document.getElementById("help-modal");
     this.btnCloseHelp = document.getElementById("btn-close-help");
     this.radarRangeDisplay = document.getElementById("radar-range-display");
+    this.stripsPanel = document.getElementById("strips-panel");
 
     this.setupEventListeners();
   }
@@ -33,6 +36,111 @@ export class UIManager {
       this.radarRangeDisplay.innerText = `${range}NM`;
     }
   }
+
+  // --- Flight Progress Strips ---
+
+  public createStrip(ac: Aircraft) {
+    if (!this.stripsPanel) return;
+
+    const div = document.createElement("div");
+    div.classList.add("flight-strip");
+    div.id = `strip-${ac.callsign}`;
+    div.onclick = () => {
+      this.callbacks.onSelect(ac.callsign);
+    };
+
+    const eta = ac.estimatedArrivalTime
+      ? `${ac.estimatedArrivalTime.getHours().toString().padStart(2, "0")}:${ac.estimatedArrivalTime.getMinutes().toString().padStart(2, "0")}`
+      : "--:--";
+
+    // Altitude (FL)
+    const alt = Math.floor(ac.altitude / 100);
+    // Speed
+    const spd = Math.floor(ac.speed);
+    // Heading
+    const hdg = Math.floor(ac.heading);
+
+    div.innerHTML = `
+        <div class="strip-header">
+            <span class="strip-callsign">${ac.callsign}</span>
+            <span class="strip-eta" id="strip-${ac.callsign}-eta">${eta}</span>
+        </div>
+        <div class="strip-details">
+            <div class="strip-row"><span>ALT</span><span class="strip-val" id="strip-${ac.callsign}-alt">${alt}</span></div>
+            <div class="strip-row"><span>SPD</span><span class="strip-val" id="strip-${ac.callsign}-spd">${spd}</span></div>
+            <div class="strip-row"><span>HDG</span><span class="strip-val" id="strip-${ac.callsign}-hdg">${hdg}</span></div>
+            <div class="strip-row"><span>TYP</span><span class="strip-val">${ac.wakeTurbulence}</span></div>
+        </div>
+    `;
+
+    this.stripsPanel.appendChild(div);
+  }
+
+  public updateStrip(ac: Aircraft) {
+    const etaEl = document.getElementById(`strip-${ac.callsign}-eta`);
+    const altEl = document.getElementById(`strip-${ac.callsign}-alt`);
+    const spdEl = document.getElementById(`strip-${ac.callsign}-spd`);
+    const hdgEl = document.getElementById(`strip-${ac.callsign}-hdg`);
+
+    if (etaEl && ac.estimatedArrivalTime) {
+      // ETA Update
+      const etaStr = `${ac.estimatedArrivalTime.getHours().toString().padStart(2, "0")}:${ac.estimatedArrivalTime.getMinutes().toString().padStart(2, "0")}`;
+      if (etaEl.innerText !== etaStr) etaEl.innerText = etaStr;
+
+      // Check Delay (if ETA > STA + 5min ?)
+      // For now just display
+    }
+
+    if (altEl) {
+      const alt = Math.floor(ac.altitude / 100).toString();
+      if (altEl.innerText !== alt) altEl.innerText = alt;
+
+      // Hightlight if changing?
+      if (ac.altitude !== ac.targetAltitude)
+        altEl.classList.add("strip-updated");
+      else altEl.classList.remove("strip-updated");
+    }
+
+    if (spdEl) {
+      const spd = Math.floor(ac.speed).toString();
+      if (spdEl.innerText !== spd) spdEl.innerText = spd;
+
+      if (Math.abs(ac.speed - ac.targetSpeed) > 1)
+        spdEl.classList.add("strip-updated");
+      else spdEl.classList.remove("strip-updated");
+    }
+
+    if (hdgEl) {
+      const hdg = Math.floor(ac.heading).toString();
+      if (hdgEl.innerText !== hdg) hdgEl.innerText = hdg;
+
+      if (Math.abs(ac.heading - ac.targetHeading) > 1)
+        hdgEl.classList.add("strip-updated");
+      else hdgEl.classList.remove("strip-updated");
+    }
+  }
+
+  public removeStrip(ac: Aircraft) {
+    const el = document.getElementById(`strip-${ac.callsign}`);
+    if (el) el.remove();
+  }
+
+  public highlightStrip(ac: Aircraft | null) {
+    // Clear all
+    document
+      .querySelectorAll(".flight-strip")
+      .forEach((el) => el.classList.remove("selected"));
+
+    if (ac) {
+      const el = document.getElementById(`strip-${ac.callsign}`);
+      if (el) {
+        el.classList.add("selected");
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }
+
+  // --- End Flight Strips ---
 
   private setupEventListeners() {
     if (!this.inputCommand) return;

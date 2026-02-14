@@ -67,6 +67,20 @@ export class Game extends Scene {
     // Variation is -7. We want to rotate +7 to make True 353 (Mag 0) point Up.
     // this.magVarCorrection = -this.airport.magneticVariation * (Math.PI / 180);
 
+    this.uiManager = new UIManager({
+      onCommand: (cmd) => this.handleCommand(cmd),
+      onTimeScaleChange: (scale) => {
+        this.timeScale = scale;
+      },
+      onZoom: (dir) => this.handleZoom(dir),
+      onSelect: (callsign) => {
+        if (this.trafficManager) {
+          const ac = this.trafficManager.getAircraftByCallsign(callsign);
+          this.selectAircraft(ac);
+        }
+      },
+    });
+
     this.trafficManager = new TrafficManager(
       this,
       this.airport,
@@ -74,7 +88,9 @@ export class Game extends Scene {
       this.CY,
       this.pixelsPerNm,
       (ac) => this.selectAircraft(ac),
+      this.uiManager,
     );
+
     // this.trafficManager.setRotationCorrection(this.magVarCorrection);
     this.spawnManager = new SpawnManager(this.trafficManager);
     this.spawnManager.setMode("SCENARIO");
@@ -89,14 +105,6 @@ export class Game extends Scene {
     this.videoMap = new VideoMap(this.airport);
     this.videoMapGraphics = this.add.graphics();
     this.rangeRingsGraphics = this.add.graphics();
-
-    this.uiManager = new UIManager({
-      onCommand: (cmd) => this.handleCommand(cmd),
-      onTimeScaleChange: (scale) => {
-        this.timeScale = scale;
-      },
-      onZoom: (dir) => this.handleZoom(dir),
-    });
 
     this.input.on(
       "pointerdown",
