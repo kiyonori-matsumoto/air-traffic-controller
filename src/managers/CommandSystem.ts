@@ -24,14 +24,23 @@ export class CommandSystem {
     const voiceParts: string[] = [];
     const readbackParts: string[] = [];
 
+    // 0. Ownership Check
+    // Allow 'RADAR CONTACT' even if not owned (to accept handoff)
+    if (command !== "RADAR CONTACT" && command !== "RC") {
+      if (ac.ownership !== "OWNED") {
+        result.atcLog = `${ac.callsign} not under your control.`;
+        return result;
+      }
+    }
+
     // 1. Heading (Hxxx)
     const headingMatch = command.match(/H(\d{3})/);
     if (headingMatch) {
       let val = parseInt(headingMatch[1]);
 
-      // Convert Magnetic (Pilot Input) to True (System Physics)
-      // True = Mag + Variation
-      const trueHeading = (val + this.airport.magneticVariation + 360) % 360;
+      // Magnetic Variation Correction Removed as per user request
+      // System now assumes Pilot Input = System Heading (True North)
+      const trueHeading = val;
 
       result.pendingUpdates.push(() => {
         ac.targetHeading = trueHeading;
@@ -94,68 +103,117 @@ export class CommandSystem {
       result.handled = true;
     }
 
-    // 4. Legacy / Special Commands
-    let fixName = "";
-    if (command.startsWith("DCT ")) {
-      fixName = command.replace("DCT ", "");
-    }
+    // 4. Start / Route Clearance
+    // Pattern: "CLEARED [FIX] VIA [STAR] ARRIVAL" or "DCT [FIX]"
+    const starMatch = command.match(
+      /^CLEARED\s+([A-Z0-9]+)\s+VIA\s+([A-Z0-9]+)\s+ARRIVAL$/,
+    );
+    if (starMatch) {
+      const fixName = starMatch[1];
+      const starName = starMatch[2];
 
-    if (fixName) {
-      const startWp = this.airport.getWaypoint(fixName);
-      // If not found, we just ignore for now or return unhandled if it's the only thing?
-      // Existing logic returned unhandled immediately.
-      // Let's check: if we already handled H/S/A, do we return partial success?
-      // Ideally yes. But 'DCT' logic usually implies a specific route change that might override H.
-      // For now let's append if found.
+      // Debugging: Iterate keys to find match (case insensitive support?)
+      // Assuming strict upper case for now as command is upper case
+      const route = this.airport.stars[starName];
 
-      if (startWp) {
-        // Route Calculation
-        let routeName = "";
-        const newPlan = [startWp];
-        let applied = false;
+      if (route) {
+        const idx = route.indexOf(fixName);
+        if (idx !== -1) {
+          // Valid STAR and Fix
+          const newPlan: any[] = [];
 
-        // STAR Check
-        for (const starName in this.airport.stars) {
-          const route = this.airport.stars[starName];
-          const idx = route.indexOf(fixName);
-          if (idx !== -1) {
-            for (let i = idx + 1; i < route.length; i++) {
-              const nextWpName = route[i];
-              const nextWp = this.airport.getWaypoint(nextWpName);
-              if (nextWp) newPlan.push(nextWp);
-            }
-            routeName = `${starName} arrival`;
-
-            const phrase = `cleared via ${starName} arrival`;
-            logParts.push(phrase);
-            voiceParts.push(phrase);
-            readbackParts.push(`cleared via ${routeName}`);
-
-            applied = true;
-            result.handled = true;
-            break;
+          // Add waypoints starting from the fix
+          for (let i = idx; i < route.length; i++) {
+            const wp = this.airport.getWaypoint(route[i]);
+            if (wp) newPlan.push(wp);
           }
-        }
 
-        if (!applied) {
-          // Direct To
-          const phrase = `proceed direct ${fixName}`;
+          result.pendingUpdates.push(() => {
+            ac.flightPlan = newPlan;
+            ac.activeWaypoint = null;
+          });
+
+          const phrase = `cleared to ${fixName} via ${starName} arrival`;
           logParts.push(phrase);
           voiceParts.push(phrase);
-          readbackParts.push(`direct ${fixName}`);
+          readbackParts.push(`cleared via ${starName} arrival`);
+          result.handled = true;
+        } else {
+          // Fix not in STAR
+          result.atcLog = `${fixName} is not on ${starName} arrival.`;
+          // Don't set handled=true, let it fall through or return error
+          return result;
+        }
+      } else {
+        result.atcLog = `Unknown arrival: ${starName}`;
+        return result;
+      }
+    } else if (command.startsWith("DCT ")) {
+      // ... (Existing DCT logic)
+      let fixName = command.replace("DCT ", "");
+      if (fixName) {
+        const startWp = this.airport.getWaypoint(fixName);
+        if (startWp) {
+          // Check if Fix is part of ANY STAR (Auto-match behavior) - KEEPING for backward compat or shortcuts?
+          // User asked to "distinguish which Waypoint is okay", implying strictness.
+          // Let's modify: "DCT [FIX]" just goes to Fix. If it happens to be on a STAR, fine, but we don't auto-assign the rest unless specified?
+          // Actually, previous logic auto-assigned the STAR if found.
+          // Let's keep "DCT" simple: Proceed Direct to Fix.
+          // If user wants STAR, they must use "CLEARED ... VIA ...".
+          // OR, we keep the auto-discovery but maybe restrict it?
+          // Let's keep DCT as "Direct To" + "Auto-filling subsequent points if implicit".
+
+          let routeName = "";
+          const newPlan = [startWp];
+          let applied = false;
+
+          // STAR Check (Auto-fill)
+          for (const starName in this.airport.stars) {
+            const route = this.airport.stars[starName];
+            const idx = route.indexOf(fixName);
+            if (idx !== -1) {
+              for (let i = idx + 1; i < route.length; i++) {
+                // ... populate rest
+                const nextWp = this.airport.getWaypoint(route[i]);
+                if (nextWp) newPlan.push(nextWp);
+              }
+              routeName = `${starName} arrival`;
+              // We won't say "Cleared via STAR" if they just said "DCT".
+              // We'll say "Proceed direct [FIX], then [STAR] arrival?"
+              // For simplicity, let's keep the old behavior but maybe make the log clearer modification isn't requested for DCT.
+              // Actually, user request "clarde CIVIC via AKSEL2C" suggests they WANT to use the explicit syntax.
+              // So I will implement the Explicit Syntax (handled above)
+              // And here, I will leave DCT as is, or maybe remove the auto-star logic if it's confusing?
+              // Let's keep DCT as "Direct + Auto-continue" for convenience, but the new command allows validation.
+
+              const phrase = `cleared via ${starName} arrival`; // Old behavior
+              logParts.push(phrase);
+              voiceParts.push(phrase);
+              readbackParts.push(`cleared via ${routeName}`);
+              applied = true;
+              break;
+            }
+          }
+
+          if (!applied) {
+            const phrase = `proceed direct ${fixName}`;
+            logParts.push(phrase);
+            voiceParts.push(phrase);
+            readbackParts.push(`direct ${fixName}`);
+          }
+
+          result.pendingUpdates.push(() => {
+            ac.flightPlan = newPlan;
+            ac.activeWaypoint = null;
+          });
           result.handled = true;
         }
-
-        result.pendingUpdates.push(() => {
-          ac.flightPlan = newPlan;
-          ac.activeWaypoint = null;
-        });
       }
     }
 
     // 5. Contact Tower
     if (command === "CONTACT TOWER" || command === "CT") {
-      const phrase = `contact tower 118.1. Good day`; // Period for log?
+      // const phrase = `contact tower 118.1. Good day`; // Period for log?
       // "Contact tower 118.1 Good day"
       const cleanPhrase = `contact tower 118.1 good day`;
       logParts.push(cleanPhrase);

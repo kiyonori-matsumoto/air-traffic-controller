@@ -37,6 +37,7 @@ export class TrafficManager {
   }
 
   public update(_time: number, dt: number) {
+    // ...
     // Spawning handled externally by SpawnManager calling spawnAircraft
 
     // Label Overlaps
@@ -60,14 +61,8 @@ export class TrafficManager {
       const active = ac.logic.updateLanding(this.airport.runways);
       if (!active) {
         ac.visual.destroy();
-        // Destroy other components if they are not children of container?
-        // In createAircraftContainer, vectorLine, jRing, leaderLine are added to scene, NOT container.
-        // Container only has symbol, text, dataText.
-        // So we MUST destroy them manually.
-        ac.components.vectorLine.destroy();
-        ac.components.jRing.destroy();
-        ac.components.leaderLine.destroy();
-        ac.components.trailDots.forEach((d) => d.destroy());
+        // Destroy other components using helper
+        this.destroyAircraftVisuals(ac);
 
         if (this.selected === ac.logic) {
           this.onSelectAircraft(null);
@@ -79,10 +74,8 @@ export class TrafficManager {
       const dist = Math.sqrt(ac.logic.x ** 2 + ac.logic.y ** 2);
       if (dist > 100) {
         ac.visual.destroy();
-        ac.components.vectorLine.destroy();
-        ac.components.jRing.destroy();
-        ac.components.leaderLine.destroy();
-        ac.components.trailDots.forEach((d) => d.destroy());
+        this.destroyAircraftVisuals(ac);
+
         if (this.selected === ac.logic) {
           this.onSelectAircraft(null);
         }
@@ -90,6 +83,13 @@ export class TrafficManager {
       }
       return true;
     });
+  }
+
+  private destroyAircraftVisuals(ac: AircraftEntity) {
+    ac.components.vectorLine.destroy();
+    ac.components.jRing.destroy();
+    ac.components.leaderLine.destroy();
+    ac.components.trailDots.forEach((d) => d.destroy());
   }
 
   public getAircraftsLogic(): Aircraft[] {
@@ -226,22 +226,28 @@ export class TrafficManager {
     ac.visual.setPosition(sx, sy);
 
     // Update Visual State (Colors & Highlights)
-    const isOwned = logic.ownership === "OWNED";
+    // ... (Keep existing color logic) ...
     const isOffered = logic.ownership === "HANDOFF_OFFERED";
+    const isHandoffComplete = logic.ownership === "HANDOFF_COMPLETE";
     const isSelected = logic === this.selected;
 
-    const baseColor = isOffered ? "#cccc00" : "#00ff41"; // Yellow if offered, Green if owned
+    let baseColor = "#00ff41";
+    if (isOffered) baseColor = "#cccc00";
+    else if (isHandoffComplete) baseColor = "#ffffff";
+
     ac.components.dataText.setColor(baseColor);
     ac.components.callsignText.setColor(baseColor);
 
     // Highlight Ring
-    // Show if Selected OR Offered
     if (isSelected) {
-      ac.components.highlight.setStrokeStyle(1.5, 0x00ff41); // Green for selection
+      ac.components.highlight.setStrokeStyle(1.5, 0x00ff41);
       ac.components.highlight.setVisible(true);
     } else if (isOffered) {
-      ac.components.highlight.setStrokeStyle(1.5, 0xcccc00); // Yellow for handoff offer
+      ac.components.highlight.setStrokeStyle(1.5, 0xcccc00);
       ac.components.highlight.setVisible(true);
+    } else if (isHandoffComplete) {
+      ac.components.highlight.setStrokeStyle(1.5, 0xffffff);
+      ac.components.highlight.setVisible(true); // Optional: Keep selected if needed, or just color
     } else {
       ac.components.highlight.setVisible(false);
     }
@@ -253,7 +259,10 @@ export class TrafficManager {
     // 1 minute vector
     const vectorLenNm = logic.measuredSpeed / 60;
     const vectorLenPx = vectorLenNm * this.pixelsPerNm;
-    const headingRad = (logic.measuredHeading - 90) * (Math.PI / 180);
+
+    // Heading (True)
+    const visualHeading = logic.measuredHeading;
+    const headingRad = (visualHeading - 90) * (Math.PI / 180);
 
     ac.components.vectorLine.setTo(
       sx,
@@ -267,6 +276,7 @@ export class TrafficManager {
     logic.history.forEach((pos, i) => {
       if (i < ac.components.trailDots.length) {
         const dot = ac.components.trailDots[i];
+
         const dx = this.cx + pos.x * this.pixelsPerNm;
         const dy = this.cy - pos.y * this.pixelsPerNm;
         dot.setPosition(dx, dy);
@@ -274,39 +284,13 @@ export class TrafficManager {
       }
     });
 
+    // ... (rest of method) call new helper
     // Update Leader Line
     ac.components.leaderLine.setTo(0, 0, ac.tagOffset.x, ac.tagOffset.y);
 
     // Update Data Block Position
     ac.components.dataText.setPosition(ac.tagOffset.x, ac.tagOffset.y - 2);
     ac.components.callsignText.setPosition(ac.tagOffset.x, ac.tagOffset.y - 15);
-    // text (callsign) is separate? In createAircraftContainer, callsign is 'text'.
-    // Wait, 'text' is not in components interface in Game.ts?
-    // Let's check interface in TrafficManager.
-    // It should be there.
-    // In createAircraftContainer, I added 'text' to container but didn't return it in 'components'.
-    // Generally Phaser container children move with container.
-    // But logic for updating text position relative to container is needed?
-    // Game.ts logic:
-    /*
-            const text = this.add.text(20, -35, ac.callsign, fontStyle);
-            ...
-            ac.components.dataText.setPosition(ac.tagOffset.x, ac.tagOffset.y - 2);
-            // Callsign text position?
-        */
-    // In Game.ts 'updateAircraftDisplay', it iterates children?
-    // Let's re-read updateAircraftDisplay in Game.ts to be sure.
-    // Step 529 shows updateAircraftDisplay call but not body.
-    // Step 513 showed body lines 691-700+.
-
-    // I need to make sure I update all components.
-    // 'text' (callsign) component seems missing from my interface if it needs updating.
-    // But if it's strictly offset from dataText, maybe it's fine.
-
-    // Vector Line, Trail Dots updates...
-    // I'll copy the logic from Game.ts later. For now I'll stub the complex math or rely on copied code if I have it.
-    // I don't have full `updateAircraftDisplay` body in context.
-    // I should view it before writing TrafficManager completely.
   }
 
   // ... Copy isBehind, getWakeSep, checkSeparations, resolveLabelOverlaps ...

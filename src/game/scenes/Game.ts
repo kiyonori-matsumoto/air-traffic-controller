@@ -66,6 +66,10 @@ export class Game extends Scene {
     // 羽田 34R (中心0,0付近として設定)
     const rwy34R = new Runway("34R", 0, 0, 329.88, 1.5);
     this.airport = new Airport("RJTT", [rwy34R]);
+    // Calculate Rotation Correction (Negative Variation -> Positive Rotation)
+    // Variation is -7. We want to rotate +7 to make True 353 (Mag 0) point Up.
+    // this.magVarCorrection = -this.airport.magneticVariation * (Math.PI / 180);
+
     this.trafficManager = new TrafficManager(
       this,
       this.airport,
@@ -74,6 +78,7 @@ export class Game extends Scene {
       this.pixelsPerNm,
       (ac) => this.selectAircraft(ac),
     );
+    // this.trafficManager.setRotationCorrection(this.magVarCorrection);
     this.spawnManager = new SpawnManager(this.trafficManager);
     this.spawnManager.setMode("SCENARIO");
     this.commandSystem = new CommandSystem(this.airport);
@@ -315,9 +320,12 @@ export class Game extends Scene {
         });
       }
     } else {
-      // Check if it was an unknown waypoint
-      // This is a bit "leaky" abstraction, but for now fine.
-      if (cmd.startsWith("DCT ")) {
+      // Check for specific error message from CommandSystem
+      if (result.atcLog) {
+        this.addLog(result.atcLog, "system");
+        // Also play a short "beep" or negative sound if we had one?
+        // this.audioManager.playError();
+      } else if (cmd.startsWith("DCT ")) {
         this.addLog(`Station not found or command not recognized.`, "system");
       }
     }
@@ -359,7 +367,8 @@ export class Game extends Scene {
     // East(90) -> 0 (Phaser)
     // South(180) -> 90 (Phaser)
     // LogicAngle to PhaserAngle:  (Logic - 90)
-    const beamRad = (this.radar.sweepAngle - 90) * (Math.PI / 180);
+    const visualAngle = this.radar.sweepAngle;
+    const beamRad = (visualAngle - 90) * (Math.PI / 180);
 
     this.radarBeam.setPosition(this.CX, this.CY);
     this.radarBeam.setTo(
