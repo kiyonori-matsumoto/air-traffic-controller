@@ -95,6 +95,7 @@ export class Airport {
   public runways: Runway[];
   public waypoints: Waypoint[] = [];
   public stars: { [name: string]: string[] } = {}; // STAR名 -> Waypoint名のリスト
+  public approaches: { [name: string]: string[] } = {}; // アプローチ名 -> Waypoint名のリスト
 
   // RJTT Reference Point
   // Use Runway 34R Threshold as (0,0) match the visual Game.ts setup.
@@ -370,6 +371,10 @@ export class Airport {
         "EDDIE",
         "CREAM",
       ],
+    };
+
+    this.approaches = {
+      ILSZ34R: ["CREAM", "CLOAK", "CAMEL", "CACAO"],
     };
   }
 

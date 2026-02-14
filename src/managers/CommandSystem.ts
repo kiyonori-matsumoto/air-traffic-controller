@@ -147,6 +147,46 @@ export class CommandSystem {
         result.atcLog = `Unknown arrival: ${starName}`;
         return result;
       }
+    } else if (
+      command === "CLEARED ILS Z RWY34R" ||
+      command === "ILS Z 34R" ||
+      command === "C I Z 34R"
+    ) {
+      // ILS Approach Clearance
+      // Route: CREAM -> CLOAK -> CAMEL -> CACAO
+      // Logic: Proceed Direct CREAM (Start of Approach), then follow dots.
+      // User requested: "Behavior when issued before CREAM: Propose/Implement appropriate one."
+      // Implementation: Replace Flight Plan with Approach Route.
+      // This implies: "Proceed Direct CREAM, then follow approach."
+
+      const approachName = "ILSZ34R";
+      const route = this.airport.approaches[approachName];
+
+      if (route) {
+        const newPlan: any[] = [];
+        for (const wpName of route) {
+          const wp = this.airport.getWaypoint(wpName);
+          if (wp) newPlan.push(wp);
+        }
+
+        result.pendingUpdates.push(() => {
+          ac.flightPlan = newPlan;
+          ac.activeWaypoint = null; // Reset to force re-evaluation (Direct to first WP)
+          // Optionally set state to indicate Approach Cleared?
+          // For now, navigation logic handles "Flying to Waypoint".
+          // Runway.isAligned checks for capture.
+        });
+
+        const phrase = "cleared ILS Zulu Runway 34 Right approach";
+        const voicePhrase =
+          "cleared ILS Zulu Runway 34 Right approach. Proceed direct Cream.";
+        logParts.push(phrase);
+        voiceParts.push(voicePhrase); // Clarify "Direct" in voice
+        readbackParts.push("cleared ILS Zulu Runway 34 Right approach");
+        result.handled = true;
+      } else {
+        result.atcLog = "Approach route ILSZ34R not defined.";
+      }
     } else if (command.startsWith("DCT ")) {
       // ... (Existing DCT logic)
       let fixName = command.replace("DCT ", "");
