@@ -23,7 +23,7 @@ export class TrafficManager {
 
   constructor(
     private scene: Scene,
-    private airport: Airport,
+    public airport: Airport,
     private cx: number,
     private cy: number,
     private pixelsPerNm: number,

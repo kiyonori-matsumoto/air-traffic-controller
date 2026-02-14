@@ -1,6 +1,6 @@
 import { Scene } from "phaser";
 import { Aircraft } from "../../models/Aircraft";
-import { Airport, Runway } from "../../models/Airport";
+import { Airport } from "../../models/Airport";
 import { Radar } from "../../models/Radar";
 import { VideoMap } from "../../models/VideoMap";
 import { AudioManager } from "../../managers/AudioManager";
@@ -63,9 +63,8 @@ export class Game extends Scene {
     this.pixelsPerNm = (this.CY * 0.9) / this.RADAR_RANGE_NM;
 
     // 空港・滑走路のセットアップ
-    // 羽田 34R (中心0,0付近として設定)
-    const rwy34R = new Runway("34R", 0, 0, 329.88, 1.5);
-    this.airport = new Airport("RJTT", [rwy34R]);
+    // Runways are now initialized inside Airport class
+    this.airport = new Airport("RJTT");
     // Calculate Rotation Correction (Negative Variation -> Positive Rotation)
     // Variation is -7. We want to rotate +7 to make True 353 (Mag 0) point Up.
     // this.magVarCorrection = -this.airport.magneticVariation * (Math.PI / 180);

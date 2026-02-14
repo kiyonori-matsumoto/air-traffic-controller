@@ -102,18 +102,27 @@ export class Airport {
   // -> 35.542506, 139.803150
   public centerLat: number;
   public centerLon: number;
-  public readonly magneticVariation: number = -7.0; // West 7 degrees (approx RJTT)
+  public readonly magneticVariation: number = -7.9; // West 7 degrees (approx RJTT)
 
   constructor(
     name: string,
-    runways: Runway[],
     centerLat: number = 35.542506,
     centerLon: number = 139.80315,
   ) {
     this.name = name;
-    this.runways = runways;
     this.centerLat = centerLat;
     this.centerLon = centerLon;
+
+    // Initialize Runways
+    // MagVar = -7.9 (West). True Heading 329.88 -> Mag Heading 337.78
+    const rwy34R = new Runway(
+      "34R",
+      0,
+      0,
+      329.88 - this.magneticVariation,
+      1.5,
+    );
+    this.runways = [rwy34R];
 
     // Mock Data for RJTT using Real Coordinates (Approx)
     // KAIHO: 35.496583, 139.876778
@@ -211,39 +220,29 @@ export class Airport {
       { name: "TT455", lat: 34.8295, lon: 140.109806 },
       {
         name: "GODIN",
-        x: 0,
-        y: 0,
         lat: 36.407028, // 36°24'25.3"N
         lon: 140.282194, // 140°16'55.9"E
         z: 8000, // MHA 8000 [cite: 124, 359]
       },
       {
         name: "CHIPS",
-        x: 0,
-        y: 0,
         lat: 36.21325, // 36°12'47.7"N
         lon: 140.243583, // 140°14'36.9"E
         z: 13000, // At or below 13000ft [cite: 157, 359]
       },
       {
         name: "COLOR",
-        x: 0,
-        y: 0,
         lat: 36.021194, // 36°01'16.3"N
         lon: 140.2055, // 140°12'19.8"E
         z: 11000, // At or below 11000ft [cite: 157, 359]
       },
       {
         name: "COPSE",
-        x: 0,
-        y: 0,
         lat: 35.783, // 35°46'58.8"N
         lon: 140.2015, // 140°12'05.4"E [cite: 359]
       },
       {
         name: "COACH",
-        x: 0,
-        y: 0,
         lat: 35.626667, // 35°37'36.0"N
         lon: 140.20875, // 140°12'31.5"E
         z: 8000, // [cite: 157, 359]
@@ -251,29 +250,21 @@ export class Airport {
       },
       {
         name: "TT465",
-        x: 0,
-        y: 0,
         lat: 35.494222, // 35°29'39.2"N
         lon: 140.209833, // 140°12'35.4"E [cite: 359]
       },
       {
         name: "TT466",
-        x: 0,
-        y: 0,
         lat: 35.4275, // 35°25'39.0"N
         lon: 140.311139, // 140°18'40.1"E [cite: 359]
       },
       {
         name: "TT467",
-        x: 0,
-        y: 0,
         lat: 35.352833, // 35°21'10.2"N
         lon: 140.356778, // 140°21'24.4"E [cite: 359]
       },
       {
         name: "EDDIE",
-        x: 0,
-        y: 0,
         lat: 35.2465, // 35°14'47.4"N
         lon: 140.361361, // 140°21'40.9"E
         z: 8000, // [cite: 157, 359]
@@ -281,49 +272,60 @@ export class Airport {
       },
       {
         name: "TT468",
-        x: 0,
-        y: 0,
         lat: 35.204556, // 35°12'16.4"N
         lon: 140.234056, // 140°14'02.6"E [cite: 359]
       },
       {
         name: "ANDEN",
-        x: 0,
-        y: 0,
         lat: 35.204972, // 35°12'17.9"N
         lon: 140.092972, // 140°05'34.7"E [cite: 359]
       },
       {
         name: "ARLON",
-        x: 0,
-        y: 0,
         lat: 35.257028, // 35°15'25.3"N
         lon: 139.983278, // 139°58'59.8"E
         z: 4000, // MHA 4000 [cite: 25, 359]
       },
       {
         name: "UMUKI",
-        x: 0,
-        y: 0,
         lat: 35.205306, // 35°12'19.1"N
         lon: 139.813667, // 139°48'49.2"E
         z: 6000, // At or above 6000ft [cite: 80, 267, 359]
       },
       {
         name: "KAIHO",
-        x: 0,
-        y: 0,
         lat: 35.316056, // 35°18'57.8"N
         lon: 139.778444, // 139°46'42.4"E
         z: 4000, // MHA 4000 [cite: 16, 277, 359]
       },
       {
         name: "CREAM",
-        x: 0,
-        y: 0,
         lat: 35.295389, // 35°17'43.4"N
         lon: 140.103444, // 140°06'12.4"E
         z: 4000, // MHA 4000 [cite: 148, 357, 359]
+      },
+      {
+        name: "CLOAK", // Intermediate Waypoint
+        x: 0,
+        y: 0,
+        lat: 35.263333, // 35°15'48.0"N [cite: 392]
+        lon: 140.035611, // 140°02'08.2"E [cite: 392]
+      },
+      {
+        name: "CAMEL", // IF (Intermediate Fix)
+        x: 0,
+        y: 0,
+        lat: 35.288389, // 35°17'18.2"N [cite: 394]
+        lon: 139.982722, // 139°58'57.8"E [cite: 394]
+        z: 4000, // 4000ft [cite: 450, 458]
+      },
+      {
+        name: "CACAO", // FAF (Final Approach Fix)
+        x: 0,
+        y: 0,
+        lat: 35.370225, // 35°22'12.81"N [cite: 431]
+        lon: 139.925039, // 139°55'30.14"E [cite: 431]
+        z: 4000, // 4000ft [cite: 450, 453]
       },
     ];
 
@@ -333,6 +335,7 @@ export class Airport {
         wp.lon,
         this.centerLat,
         this.centerLon,
+        this.magneticVariation,
       );
       return {
         ...wp,
@@ -382,13 +385,19 @@ export class Airport {
     z?: number,
     spd?: number,
   ) {
-    const pos = GeoUtils.latLngToNM(lat, lon, this.centerLat, this.centerLon);
+    const pos = GeoUtils.latLngToNM(
+      lat,
+      lon,
+      this.centerLat,
+      this.centerLon,
+      this.magneticVariation,
+    );
     this.waypoints.push({
       name,
       lat,
       lon,
       x: pos.x,
-      y: -pos.y,
+      y: pos.y, // Fixed inconsistency: Removed negative sign to match constructor logic
       z,
       speedLimit: spd,
     });

@@ -38,7 +38,6 @@ export class CommandSystem {
     if (headingMatch) {
       let val = parseInt(headingMatch[1]);
 
-      // Magnetic Variation Correction Removed as per user request
       // System now assumes Pilot Input = System Heading (True North)
       const trueHeading = val;
 

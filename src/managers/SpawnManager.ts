@@ -93,6 +93,32 @@ export class SpawnManager {
       // Usually heading towards the first waypoint.
       // But for simplicity, let's just point reciprocal for now to ensure they enter sector.
       heading = (stream.bearing + 180) % 360;
+    } else if (event.entryPoint === "DEBUG_CREAM") {
+      // Custom Debug Spot: Near CREAM, Heading to CREAM
+      // CREAM is approx South East. We spawn further South East.
+      const cream = this.trafficManager.airport.getWaypoint("CREAM");
+      if (cream) {
+        // Heading to CREAM (North West-ish).
+        // CREAM is at x,y.
+        // Let's spawn 10NM South East (135 deg).
+        // So dx = 10 * sin(135), dy = 10 * cos(135)
+        // spawnX = cream.x + dx, spawnY = cream.y + dy
+        // Heading = 315 (North West)
+
+        const dist = 10;
+        const angle = (135 * Math.PI) / 180;
+        x = cream.x + Math.sin(angle) * dist;
+        y = cream.y + Math.cos(angle) * dist; // Note: TrafficManager/Airport y is North-positive (after inversion logic fix)
+        // Wait, Airport.ts y is now positive = North (from GeoUtils).
+        // TrafficManager display inverts it (sy = cy - y).
+        // So logic coordinates are standard math (Y=North).
+
+        heading = 315;
+      } else {
+        x = 20;
+        y = -20;
+        heading = 315;
+      }
     } else {
       // Fallback
       x = 0;
@@ -113,7 +139,7 @@ export class SpawnManager {
     });
   }
 
-  private updateRandomGeneration(dt: number) {
+  private updateRandomGeneration(_dt: number) {
     // Simple Poisson-like check or interval check
     if (this.gameTime > this.lastRandomSpawn + this.randomInterval) {
       // Random chance
@@ -156,6 +182,16 @@ export class SpawnManager {
   private loadDefaultScenario() {
     // Simple Scenario
     const events: SpawnEvent[] = [
+      {
+        time: 1,
+        flightId: "TEST01",
+        model: "B737",
+        type: "ARRIVAL",
+        entryPoint: "DEBUG_CREAM",
+        destination: "CREAM",
+        altitude: 4000,
+        speed: 250,
+      },
       {
         time: 5,
         flightId: "JAL101",
