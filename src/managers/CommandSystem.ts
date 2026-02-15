@@ -90,14 +90,20 @@ export class CommandSystem {
     result: CommandResult,
     buffers: LogBuffers,
   ): boolean {
-    const headingMatch = command.match(/H(\d{3})/);
+    // Start with strict check or allow standard phrases
+    // "H090", "HEADING 090", "TURN LEFT HEADING 090" -> Simplify to looking for Hxxx or HEADING xxx
+    const headingMatch = command.match(/(?:HEADING|H)\s*(\d{3})/);
     if (headingMatch) {
       const val = parseInt(headingMatch[1]);
       result.pendingUpdates.push(() => {
-        ac.targetHeading = val;
-        ac.activeLeg = null; // Vectoring overrides LNAV
+        ac.autopilot.setHeading(val);
+        // Clean up LNAV state if needed, though Autopilot Mode switch handles the logical gate.
+        // We might want to clear activeLeg/Waypoint to "reset" LNAV progress if we switch back later?
+        // Current logic in handleHeading cleared them.
+        // Let's keep clearing them to be safe and consistent with "breaking" LNAV.
+        ac.activeLeg = null;
         ac.activeWaypoint = null;
-        ac.flightPlan = []; // Clear Route (Enter Heading Mode)
+        ac.flightPlan = [];
       });
       const phrase = `turn left heading ${val}`;
       this.addLogs(buffers, phrase, phrase, phrase);
@@ -113,11 +119,11 @@ export class CommandSystem {
     result: CommandResult,
     buffers: LogBuffers,
   ): boolean {
-    const speedMatch = command.match(/S(\d{2,3})/);
+    const speedMatch = command.match(/(?:SPEED|S)\s*(\d{2,3})/);
     if (speedMatch) {
       const val = parseInt(speedMatch[1]);
       result.pendingUpdates.push(() => {
-        ac.targetSpeed = val;
+        ac.autopilot.setSpeed(val);
       });
       const phrase = `reduce speed to ${val}`;
       this.addLogs(buffers, phrase, phrase, phrase);
@@ -133,11 +139,11 @@ export class CommandSystem {
     result: CommandResult,
     buffers: LogBuffers,
   ): boolean {
-    const altMatch = command.match(/A(\d+)/);
+    const altMatch = command.match(/(?:ALTITUDE|MAINTAIN|A)\s*(\d+)/);
     if (altMatch) {
       const val = parseInt(altMatch[1]);
       result.pendingUpdates.push(() => {
-        ac.targetAltitude = val;
+        ac.autopilot.setAltitude(val);
       });
       const phrase = `maintain ${val}`;
       const voicePhrase = `climb maintain ${val}`;
@@ -150,7 +156,7 @@ export class CommandSystem {
     if (flMatch) {
       const val = parseInt(flMatch[1]) * 100;
       result.pendingUpdates.push(() => {
-        ac.targetAltitude = val;
+        ac.autopilot.setAltitude(val);
       });
       const phrase = `maintain flight level ${flMatch[1]}`;
       const voicePhrase = `climb maintain flight level ${flMatch[1]}`;
@@ -213,6 +219,8 @@ export class CommandSystem {
             ac.activeWaypoint = null;
             ac.activeLeg = null; // Reset active leg
             ac.approachType = starName;
+            ac.autopilot.lateralMode = "LNAV";
+            ac.autopilot.verticalMode = "VNAV";
           });
           const phrase = `cleared to ${fixName} via ${starName} arrival`;
           this.addLogs(
@@ -278,6 +286,8 @@ export class CommandSystem {
           ac.activeWaypoint = null;
           ac.activeLeg = null;
           ac.approachType = "ILS Z 34R";
+          ac.autopilot.lateralMode = "LNAV";
+          ac.autopilot.verticalMode = "VNAV";
         });
         const phrase = "cleared ILS Zulu Runway 34 Right approach";
         const voicePhrase =
@@ -352,6 +362,8 @@ export class CommandSystem {
             ac.flightPlan = newPlan;
             ac.activeWaypoint = null;
             ac.activeLeg = null;
+            ac.autopilot.lateralMode = "LNAV";
+            ac.autopilot.verticalMode = "VNAV";
           });
           result.handled = true;
           return true;

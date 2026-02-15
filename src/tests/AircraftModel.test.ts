@@ -23,7 +23,8 @@ describe("Aircraft Model", () => {
     });
 
     it("should turn towards target heading", () => {
-      aircraft.targetHeading = 90;
+      // aircraft.targetHeading = 90; // Old way
+      aircraft.autopilot.setHeading(90);
       aircraft.turnRate = 3; // 3 deg/s
       const dt = 1;
 
@@ -35,7 +36,8 @@ describe("Aircraft Model", () => {
 
     it("should wrap heading around 360", () => {
       aircraft.heading = 359;
-      aircraft.targetHeading = 5;
+      // aircraft.targetHeading = 5;
+      aircraft.autopilot.setHeading(5);
       aircraft.turnRate = 3;
 
       aircraft.update(1); // 359 -> 2 (cross 0)
@@ -46,7 +48,9 @@ describe("Aircraft Model", () => {
 
     it("should climb towards target altitude", () => {
       aircraft.altitude = 10000;
-      aircraft.targetAltitude = 11000;
+      // aircraft.targetAltitude = 11000;
+      aircraft.autopilot.setAltitude(11000);
+      aircraft.autopilot.speedMode = "FMS"; // Enable profile management
       aircraft.climbRate = 35; // ft/s
       const dt = 1;
 
@@ -116,6 +120,9 @@ describe("Aircraft Model", () => {
         { type: "TF", waypoint: "WP2" },
       ];
 
+      // IMPORTANT: Set Autopilot Mode to LNAV
+      aircraft.autopilot.lateralMode = "LNAV";
+
       // Initial update to grab first leg
       aircraft.updateNavigation(mockWaypoints);
 
@@ -123,7 +130,9 @@ describe("Aircraft Model", () => {
       if (aircraft.activeLeg && "waypoint" in aircraft.activeLeg) {
         expect(aircraft.activeLeg.waypoint).toBe("WP1");
       } else {
-        throw new Error("Expected TF leg");
+        throw new Error(
+          "Expected TF leg, got " + JSON.stringify(aircraft.activeLeg),
+        );
       }
       expect(aircraft.activeWaypoint).toBe(wp1);
 
@@ -132,7 +141,9 @@ describe("Aircraft Model", () => {
       aircraft.y = 9.99; // 0.01nm away (Very close)
       aircraft.speed = 250;
 
-      // Update logic
+      // Update logic (Not updateNavigation directly, but update() calls it?
+      // No, updateNavigation is called by TrafficManager in game loop.
+      // Unit test calls it manually.)
       aircraft.updateNavigation(mockWaypoints);
 
       expect(aircraft.activeLeg).toBeNull();

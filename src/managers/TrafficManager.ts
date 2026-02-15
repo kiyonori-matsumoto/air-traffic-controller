@@ -317,6 +317,15 @@ export class TrafficManager {
 
     ac.components.dataText.setText(`${alt} ${spd}${wake}`);
 
+    if (logic.autopilot.debug) {
+      const ap = logic.autopilot;
+      const leg = logic.activeLeg;
+      const wpName = leg && "waypoint" in leg ? leg.waypoint : "N/A";
+      const cons = leg && "altConstraint" in leg ? leg.altConstraint : "-";
+      const debugStr = `\n${ap.lateralMode}/${ap.verticalMode}\nTAlt:${Math.round(logic.targetAltitude)}\nLeg:${leg?.type} ${wpName}\nCons:${cons}`;
+      ac.components.dataText.setText(`${alt} ${spd}${wake}${debugStr}`);
+    }
+
     // Update Position
     const sx = this.cx + logic.measuredX * this.pixelsPerNm;
     const sy = this.cy - logic.measuredY * this.pixelsPerNm;

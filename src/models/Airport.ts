@@ -93,26 +93,26 @@ export interface Waypoint {
 
 export type FlightLeg =
   | {
-      type: "VA";
+      type: "VA"; // Vector to Altitude
       heading: number;
       altConstraint: number;
       zConstraint?: "AT" | "ABOVE" | "BELOW";
       speedLimit?: number;
-    } // Heading to Altitude
+    }
   | {
-      type: "DF";
+      type: "DF"; // Direct to Fix
       waypoint: string;
       altConstraint?: number;
       speedLimit?: number;
       zConstraint?: "AT" | "ABOVE" | "BELOW";
-    } // Direct to Fix
+    }
   | {
-      type: "TF";
+      type: "TF"; // Track to Fix
       waypoint: string;
       altConstraint?: number;
       speedLimit?: number;
       zConstraint?: "AT" | "ABOVE" | "BELOW";
-    }; // Track to Fix
+    };
 
 export class Airport {
   public name: string;
@@ -329,37 +329,35 @@ export class Airport {
         lat: 35.316056, // 35°18'57.8"N
         lon: 139.778444, // 139°46'42.4"E
         z: 4000, // MHA 4000
-        zConstraint: "ABOVE",
+        zConstraint: "AT",
       },
       {
         name: "CREAM",
         lat: 35.295389, // 35°17'43.4"N
         lon: 140.103444, // 140°06'12.4"E
         z: 4000, // MHA 4000
-        zConstraint: "ABOVE",
+        zConstraint: "AT",
       },
       {
         name: "CLOAK", // Intermediate Waypoint
-        x: 0,
-        y: 0,
         lat: 35.263333, // 35°15'48.0"N [cite: 392]
         lon: 140.035611, // 140°02'08.2"E [cite: 392]
+        z: 4000,
+        zConstraint: "AT",
       },
       {
         name: "CAMEL", // IF (Intermediate Fix)
-        x: 0,
-        y: 0,
         lat: 35.288389, // 35°17'18.2"N [cite: 394]
         lon: 139.982722, // 139°58'57.8"E [cite: 394]
         z: 4000, // 4000ft [cite: 450, 458]
+        zConstraint: "AT",
       },
       {
         name: "CACAO", // FAF (Final Approach Fix)
-        x: 0,
-        y: 0,
         lat: 35.370225, // 35°22'12.81"N [cite: 431]
         lon: 139.925039, // 139°55'30.14"E [cite: 431]
         z: 4000, // 4000ft [cite: 450, 453]
+        zConstraint: "AT",
       },
       // Departure Waypoints
       { name: "BASSA", lat: 35.352444, lon: 139.761722 },
