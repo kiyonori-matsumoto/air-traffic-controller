@@ -87,14 +87,33 @@ export interface Waypoint {
   lat?: number; // Optional Lat
   lon?: number; // Optional Lon
   z?: number; // 指定高度 (ft)
+  zConstraint?: "AT" | "ABOVE" | "BELOW"; // 高度制限タイプ (Default: AT?)
   speedLimit?: number; // 制限速度 (kt)
 }
+
+export type FlightLeg =
+  | { type: "VA"; heading: number; altConstraint: number } // Heading to Altitude
+  | {
+      type: "DF";
+      waypoint: string;
+      altConstraint?: number;
+      speedLimit?: number;
+      zConstraint?: "AT" | "ABOVE" | "BELOW";
+    } // Direct to Fix
+  | {
+      type: "TF";
+      waypoint: string;
+      altConstraint?: number;
+      speedLimit?: number;
+      zConstraint?: "AT" | "ABOVE" | "BELOW";
+    }; // Track to Fix
 
 export class Airport {
   public name: string;
   public runways: Runway[];
   public waypoints: Waypoint[] = [];
   public stars: { [name: string]: string[] } = {}; // STAR名 -> Waypoint名のリスト
+  public sids: { [name: string]: FlightLeg[] } = {}; // SID名 -> FlightLegリスト
   public approaches: { [name: string]: string[] } = {}; // アプローチ名 -> Waypoint名のリスト
 
   // RJTT Reference Point
@@ -190,6 +209,7 @@ export class Airport {
         lon: 140.431139,
         z: 7000,
         speedLimit: 210,
+        zConstraint: "AT",
       },
 
       // CLONE: 344357.8N / 1400856.0E
@@ -228,13 +248,15 @@ export class Airport {
         name: "CHIPS",
         lat: 36.21325, // 36°12'47.7"N
         lon: 140.243583, // 140°14'36.9"E
-        z: 13000, // At or below 13000ft [cite: 157, 359]
+        z: 13000, // At or below 13000ft
+        zConstraint: "BELOW",
       },
       {
         name: "COLOR",
         lat: 36.021194, // 36°01'16.3"N
         lon: 140.2055, // 140°12'19.8"E
-        z: 11000, // At or below 11000ft [cite: 157, 359]
+        z: 11000, // At or below 11000ft
+        zConstraint: "BELOW",
       },
       {
         name: "COPSE",
@@ -245,7 +267,8 @@ export class Airport {
         name: "COACH",
         lat: 35.626667, // 35°37'36.0"N
         lon: 140.20875, // 140°12'31.5"E
-        z: 8000, // [cite: 157, 359]
+        z: 8000, // At or Above 8000? Usually starts slowing down. Chart says At or Above 8000 usually.
+        zConstraint: "ABOVE",
         speedLimit: 210, //
       },
       {
@@ -267,7 +290,8 @@ export class Airport {
         name: "EDDIE",
         lat: 35.2465, // 35°14'47.4"N
         lon: 140.361361, // 140°21'40.9"E
-        z: 8000, // [cite: 157, 359]
+        z: 8000, // At or Above 8000
+        zConstraint: "ABOVE",
         speedLimit: 210, //
       },
       {
@@ -284,25 +308,29 @@ export class Airport {
         name: "ARLON",
         lat: 35.257028, // 35°15'25.3"N
         lon: 139.983278, // 139°58'59.8"E
-        z: 4000, // MHA 4000 [cite: 25, 359]
+        z: 4000, // MHA 4000 (At or Above)
+        zConstraint: "ABOVE",
       },
       {
         name: "UMUKI",
         lat: 35.205306, // 35°12'19.1"N
         lon: 139.813667, // 139°48'49.2"E
-        z: 6000, // At or above 6000ft [cite: 80, 267, 359]
+        z: 6000, // At or above 6000ft
+        zConstraint: "ABOVE",
       },
       {
         name: "KAIHO",
         lat: 35.316056, // 35°18'57.8"N
         lon: 139.778444, // 139°46'42.4"E
-        z: 4000, // MHA 4000 [cite: 16, 277, 359]
+        z: 4000, // MHA 4000
+        zConstraint: "ABOVE",
       },
       {
         name: "CREAM",
         lat: 35.295389, // 35°17'43.4"N
         lon: 140.103444, // 140°06'12.4"E
-        z: 4000, // MHA 4000 [cite: 148, 357, 359]
+        z: 4000, // MHA 4000
+        zConstraint: "ABOVE",
       },
       {
         name: "CLOAK", // Intermediate Waypoint
@@ -327,6 +355,19 @@ export class Airport {
         lon: 139.925039, // 139°55'30.14"E [cite: 431]
         z: 4000, // 4000ft [cite: 450, 453]
       },
+      // Departure Waypoints
+      { name: "BASSA", lat: 35.352444, lon: 139.761722 },
+      { name: "HOBBS", lat: 35.448306, lon: 139.761472 },
+      { name: "IMOLA", lat: 35.073889, lon: 139.4975 },
+      { name: "LAXAS", lat: 35.031417, lon: 139.242444 },
+      { name: "LOCUP", lat: 35.455222, lon: 139.935694 },
+      { name: "PIPER", lat: 35.166194, lon: 139.761667 },
+      { name: "SATOL", lat: 35.103694, lon: 139.678722 },
+      { name: "T6L21", lat: 35.444194, lon: 139.872778 },
+      { name: "T6R11", lat: 35.43125, lon: 139.860333 },
+      { name: "TAURA", lat: 35.312806, lon: 139.746472 },
+      { name: "TT501", lat: 35.557972, lon: 139.841639 },
+      { name: "TT502", lat: 35.540111, lon: 139.95575 },
     ];
 
     this.waypoints = rawWaypoints.map((wp) => {
@@ -370,6 +411,75 @@ export class Airport {
         "EDDIE",
         "CREAM",
       ],
+      EAST_STAR: [
+        "TT456",
+        "TT460",
+        "TT461",
+        "CIVIC",
+        "TT462",
+        "TT463",
+        "TT464",
+        "EPSON",
+        "CREAM",
+      ],
+    };
+
+    this.sids = {
+      // RWY 16R
+      LAXAS4_16R: [
+        { type: "VA", heading: 158, altConstraint: 500 },
+        { type: "DF", waypoint: "T6R11" },
+        { type: "TF", waypoint: "TAURA", altConstraint: 9000 },
+        { type: "TF", waypoint: "IMOLA", altConstraint: 15000 },
+        { type: "TF", waypoint: "LAXAS", altConstraint: 17000 },
+      ],
+      // RWY 16L
+      LAXAS4_16L: [
+        { type: "VA", heading: 158, altConstraint: 500 },
+        { type: "DF", waypoint: "T6L21" },
+        { type: "TF", waypoint: "TAURA", altConstraint: 9000 },
+        { type: "TF", waypoint: "IMOLA", altConstraint: 15000 },
+        { type: "TF", waypoint: "LAXAS", altConstraint: 17000 },
+      ],
+      // RWY 34L / 34R (Using 34R primarily)
+      LAXAS4_34R: [
+        { type: "VA", heading: 338, altConstraint: 700 },
+        { type: "DF", waypoint: "TT502" },
+        { type: "TF", waypoint: "LOCUP", altConstraint: 5000 },
+        { type: "TF", waypoint: "TAURA", altConstraint: 9000 },
+        { type: "TF", waypoint: "IMOLA", altConstraint: 15000 },
+        { type: "TF", waypoint: "LAXAS", altConstraint: 17000 },
+      ],
+      // RWY 04
+      LAXAS4_04: [
+        { type: "VA", heading: 43, altConstraint: 700 },
+        { type: "DF", waypoint: "TT502" },
+        { type: "TF", waypoint: "LOCUP", altConstraint: 5000 },
+        { type: "TF", waypoint: "TAURA", altConstraint: 9000 },
+        { type: "TF", waypoint: "IMOLA", altConstraint: 15000 },
+        { type: "TF", waypoint: "LAXAS", altConstraint: 17000 },
+      ],
+      // RWY 05
+      LAXAS4_05: [
+        { type: "VA", heading: 50, altConstraint: 500 },
+        { type: "DF", waypoint: "TT501" },
+        { type: "DF", waypoint: "TT502" },
+        { type: "TF", waypoint: "LOCUP", altConstraint: 5000 },
+        { type: "TF", waypoint: "TAURA", altConstraint: 9000 },
+        { type: "TF", waypoint: "IMOLA", altConstraint: 15000 },
+        { type: "TF", waypoint: "LAXAS", altConstraint: 17000 },
+      ],
+      // RWY 22
+      LAXAS4_22: [
+        { type: "VA", heading: 223, altConstraint: 600 },
+        { type: "DF", waypoint: "HOBBS" },
+        { type: "TF", waypoint: "BASSA" },
+        { type: "TF", waypoint: "UMUKI" },
+        { type: "TF", waypoint: "PIPER", altConstraint: 9000 },
+        { type: "TF", waypoint: "SATOL" },
+        { type: "TF", waypoint: "IMOLA", altConstraint: 15000 },
+        { type: "TF", waypoint: "LAXAS", altConstraint: 17000 },
+      ],
     };
 
     this.approaches = {
@@ -388,6 +498,7 @@ export class Airport {
     lon: number,
     z?: number,
     spd?: number,
+    zType?: "AT" | "ABOVE" | "BELOW",
   ) {
     const pos = GeoUtils.latLngToNM(
       lat,
@@ -401,9 +512,10 @@ export class Airport {
       lat,
       lon,
       x: pos.x,
-      y: pos.y, // Fixed inconsistency: Removed negative sign to match constructor logic
+      y: pos.y,
       z,
       speedLimit: spd,
+      zConstraint: zType,
     });
   }
 }

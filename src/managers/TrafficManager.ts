@@ -56,7 +56,7 @@ export class TrafficManager {
     this.aircrafts = this.aircrafts.filter((ac) => {
       // Navigation
       if (ac.logic.state === "FLYING") {
-        ac.logic.updateNavigation();
+        ac.logic.updateNavigation(this.airport.waypoints);
       }
 
       ac.logic.update(dt);
@@ -132,6 +132,8 @@ export class TrafficManager {
     speed: number;
     origin: string;
     destination: string;
+    sid?: string; // SID Name
+    star?: string; // STAR Name
   }) {
     const rand = Math.random();
     let wake = "M";
@@ -151,7 +153,50 @@ export class TrafficManager {
       wake,
     );
     ac.ownership = "HANDOFF_OFFERED";
-    // TODO: Set destination if provided? Aircraft model might need update to support initial waypoint.
+
+    // Assign SID if provided
+    if (config.sid) {
+      const sidLegs = this.airport.sids[config.sid];
+      if (sidLegs) {
+        ac.flightPlan = [...sidLegs]; // Clone array to be safe
+        ac.approachType = config.sid; // Show SID name in approach field
+
+        // For Departures with SID, set initial target altitude high to ensure climb through constraints
+        // Finding the max constraint or default to FL200
+        let maxAlt = 20000;
+        for (const leg of sidLegs) {
+          if (
+            leg.type === "TF" &&
+            leg.altConstraint &&
+            leg.altConstraint > 10000
+          ) {
+            maxAlt = Math.max(maxAlt, leg.altConstraint);
+          }
+        }
+        ac.targetAltitude = maxAlt;
+      } else {
+        console.warn(`SID ${config.sid} not found in Airport data.`);
+      }
+    } else if (config.star) {
+      // Assign STAR (Arrival)
+      const starWps = this.airport.stars[config.star];
+      if (starWps) {
+        // Convert string[] to FlightLeg[] (TF)
+        ac.flightPlan = starWps.map((wpName) => ({
+          type: "TF",
+          waypoint: wpName,
+          // Look up waypoint for constraints?
+          // Airport.ts has waypoints with Z and speedLimit.
+          // We should copy those constraints to the leg.
+          altConstraint: this.airport.getWaypoint(wpName)?.z,
+          zConstraint: this.airport.getWaypoint(wpName)?.zConstraint,
+          speedLimit: this.airport.getWaypoint(wpName)?.speedLimit,
+        }));
+        ac.approachType = config.star;
+      } else {
+        console.warn(`STAR ${config.star} not found.`);
+      }
+    }
 
     const entity = this.createAircraftContainer(ac);
     this.aircrafts.push(entity);

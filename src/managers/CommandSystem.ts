@@ -176,13 +176,40 @@ export class CommandSystem {
         const idx = route.indexOf(fixName);
         if (idx !== -1) {
           const newPlan: any[] = [];
-          for (let i = idx; i < route.length; i++) {
-            const wp = this.airport.getWaypoint(route[i]);
-            if (wp) newPlan.push(wp);
+
+          // First leg is Direct To the clearance limit if we are not at it?
+          // Or usually "Cleared to X via Y arrival" means proceed to X then follow Y.
+          // But here idx is the start.
+          // If the user says "Cleared CREAM via GODIN2C arrival", it implies starting from GODIN?
+          // No, usually "Cleared to GODIN via GODIN2C arrival".
+          // If aircraft is somewhere else, it goes DF to GODIN, then TF...
+
+          // Let's assume the first point is DF, others TF.
+          newPlan.push({
+            type: "DF",
+            waypoint: route[idx],
+            altConstraint: this.airport.getWaypoint(route[idx])?.z,
+            zConstraint: this.airport.getWaypoint(route[idx])?.zConstraint,
+            speedLimit: this.airport.getWaypoint(route[idx])?.speedLimit,
+          });
+
+          for (let i = idx + 1; i < route.length; i++) {
+            const wpName = route[i];
+            const wp = this.airport.getWaypoint(wpName);
+            newPlan.push({
+              type: "TF",
+              waypoint: wpName,
+              altConstraint: wp?.z,
+              zConstraint: wp?.zConstraint,
+              speedLimit: wp?.speedLimit,
+            });
           }
+
           result.pendingUpdates.push(() => {
             ac.flightPlan = newPlan;
             ac.activeWaypoint = null;
+            ac.activeLeg = null; // Reset active leg
+            ac.approachType = starName;
           });
           const phrase = `cleared to ${fixName} via ${starName} arrival`;
           this.addLogs(
@@ -220,13 +247,34 @@ export class CommandSystem {
       const route = this.airport.approaches[approachName];
       if (route) {
         const newPlan: any[] = [];
-        for (const wpName of route) {
-          const wp = this.airport.getWaypoint(wpName);
-          if (wp) newPlan.push(wp);
+        // First WP is usually IAF/IF. Use DF?
+        // Or if already on STAR, it connects?
+        // Let's safe-guard: First one DF, rest TF.
+        if (route.length > 0) {
+          const firstWp = this.airport.getWaypoint(route[0]);
+          newPlan.push({
+            type: "DF",
+            waypoint: route[0],
+            altConstraint: firstWp?.z,
+            zConstraint: firstWp?.zConstraint,
+            speedLimit: firstWp?.speedLimit,
+          });
+          for (let i = 1; i < route.length; i++) {
+            const wpName = route[i];
+            const wp = this.airport.getWaypoint(wpName);
+            newPlan.push({
+              type: "TF",
+              waypoint: wpName,
+              speedLimit: wp?.speedLimit,
+            });
+          }
         }
+
         result.pendingUpdates.push(() => {
           ac.flightPlan = newPlan;
           ac.activeWaypoint = null;
+          ac.activeLeg = null;
+          ac.approachType = "ILS Z 34R";
         });
         const phrase = "cleared ILS Zulu Runway 34 Right approach";
         const voicePhrase =
@@ -255,16 +303,34 @@ export class CommandSystem {
         if (startWp) {
           // Check STARs for auto-fill (keeping existing logic)
           let routeName = "";
-          const newPlan = [startWp];
-          let applied = false;
+          const newPlan: any[] = [];
 
+          // First leg is ALWAYS DF to the requested fix
+          newPlan.push({
+            type: "DF",
+            waypoint: fixName,
+            altConstraint: startWp.z,
+            zConstraint: startWp.zConstraint,
+            speedLimit: startWp.speedLimit,
+          });
+
+          // Try to append rest of STAR if applicable
+          let applied = false;
           for (const starName in this.airport.stars) {
             const route = this.airport.stars[starName];
             const idx = route.indexOf(fixName);
-            if (idx !== -1) {
+            // If found and not the last point
+            if (idx !== -1 && idx < route.length - 1) {
               for (let i = idx + 1; i < route.length; i++) {
-                const nextWp = this.airport.getWaypoint(route[i]);
-                if (nextWp) newPlan.push(nextWp);
+                const nextWpName = route[i];
+                const nextWp = this.airport.getWaypoint(nextWpName);
+                newPlan.push({
+                  type: "TF",
+                  waypoint: nextWpName,
+                  altConstraint: nextWp?.z,
+                  zConstraint: nextWp?.zConstraint,
+                  speedLimit: nextWp?.speedLimit,
+                });
               }
               routeName = `${starName} arrival`;
               const phrase = `cleared via ${starName} arrival`;
@@ -282,6 +348,7 @@ export class CommandSystem {
           result.pendingUpdates.push(() => {
             ac.flightPlan = newPlan;
             ac.activeWaypoint = null;
+            ac.activeLeg = null;
           });
           result.handled = true;
           return true;

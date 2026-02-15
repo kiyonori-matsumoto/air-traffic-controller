@@ -1,4 +1,4 @@
-import { Runway, Waypoint } from "./Airport";
+import { Runway, Waypoint, FlightLeg } from "./Airport";
 
 export class Aircraft {
   // 単位: NM(海里), ft(フィート), kt(ノット), deg(度)
@@ -64,8 +64,8 @@ export class Aircraft {
     this.targetAltitude = altitude;
     this.targetSpeed = speed;
     this.turnRate = 3; // 旋回率(deg/s)
-    this.climbRate = 50; // 約3000ft/min
-    this.acceleration = 1; // 約1kt/s
+    this.climbRate = 35; // ~2100ft/min (Reduced from 50)
+    this.acceleration = 1.0; // ~1kt/s (Reduced/Maintained)
 
     // 初期状態では計測位置＝真の位置とする
     this.measuredX = x;
@@ -125,8 +125,10 @@ export class Aircraft {
 
   // 毎フレームの計算 (dtは秒単位)
   update(dt: number) {
-    // 1. 移動・旋回ロジック (既存)
+    // Performance Management (Simple FMS)
+    this.managePerformance(dt);
 
+    // 1. 移動・旋回ロジック
     // 旋回チェック
     if (this.heading !== this.targetHeading) {
       const turnStep = this.turnRate * dt;
@@ -148,8 +150,16 @@ export class Aircraft {
     }
 
     // 高度変更チェック
+    // Acceleration reduces climb performance
+    let currentClimbRate = this.climbRate;
+    const isAccelerating = this.speed < this.targetSpeed - 5; // 5kt margin
+    if (isAccelerating) {
+      // Trade-off: 70% climb rate when accelerating
+      currentClimbRate *= 0.7;
+    }
+
     if (this.altitude !== this.targetAltitude) {
-      const climbStep = this.climbRate * dt;
+      const climbStep = currentClimbRate * dt;
       const diff = this.targetAltitude - this.altitude;
 
       if (Math.abs(diff) < climbStep) {
@@ -157,6 +167,7 @@ export class Aircraft {
       } else if (diff > 0) {
         this.altitude += climbStep;
       } else {
+        // Descent is usually faster or same, not affected by thrust limit in same way but simplified
         this.altitude -= climbStep;
       }
     }
@@ -181,6 +192,47 @@ export class Aircraft {
 
     this.x += distance * Math.sin(angleRad);
     this.y += distance * Math.cos(angleRad);
+  }
+
+  /**
+   * Manage Speed/Climb Targets based on Altitude (Departure Logic)
+   */
+  private managePerformance(_dt: number) {
+    // If manually controlled (Heading/Speed assigned by user), maybe skip?
+    // For now, assume "Managed Mode" for Departures or until user intervenes.
+    // We don't track "Mode" yet, so applying general limits.
+
+    // DEPARTURE / CLIMB Logic
+    // Check if we are in a climbing phase (Target Alt > Current Alt)
+    if (this.targetAltitude > this.altitude + 100) {
+      // Speed Schedule
+      let limitSpeed = 999;
+
+      if (this.altitude < 3000) {
+        // Initial Climb: V2 + 10-20kt
+        limitSpeed = 160;
+      } else if (this.altitude < 10000) {
+        // Below 10k: 250kt limit
+        limitSpeed = 250;
+      } else {
+        // Above 10k: Cruise Climb
+        limitSpeed = 300;
+      }
+
+      // Apply limit to Target Speed (if not manually set lower?)
+      // Since we don't distinguish manual vs auto, we just set it.
+      // Yet, let's respect Waypoint limit if active.
+      if (this.activeWaypoint && this.activeWaypoint.speedLimit) {
+        limitSpeed = Math.min(limitSpeed, this.activeWaypoint.speedLimit);
+      }
+
+      // Gently increase target speed if current target is lower than limit
+      // AND we are not constrained by user.
+      // Simplified: Always set target speed to limit for departures.
+      // How to know if departure? Squawk? Origin?
+      // Using a simple heuristic: if climbing significantly.
+      this.targetSpeed = limitSpeed;
+    }
   }
 
   /**
@@ -212,66 +264,139 @@ export class Aircraft {
   }
 
   // フライトプラン (Waypointのキュー)
-  flightPlan: Waypoint[] = [];
-  activeWaypoint: Waypoint | null = null;
+  flightPlan: FlightLeg[] = [];
+  activeLeg: FlightLeg | null = null;
+  activeWaypoint: Waypoint | null = null; // For TF/DF legs rendering checking
 
-  /**
-   * ナビゲーションロジックの更新 (Route Following)
-   */
-  updateNavigation() {
-    if (this.flightPlan.length === 0 && !this.activeWaypoint) return;
+  processLeg(leg: FlightLeg, airportWaypoints: Waypoint[]) {
+    // Helper to find waypoint
+    const getWp = (name: string) =>
+      airportWaypoints.find((w) => w.name === name);
 
-    // 次のウェイポイント設定
-    if (!this.activeWaypoint && this.flightPlan.length > 0) {
-      this.activeWaypoint = this.flightPlan.shift()!;
-      console.log(
-        `${this.callsign} proceeding direct to ${this.activeWaypoint.name}`,
-      );
-    }
+    if (leg.type === "VA") {
+      // Vector to Altitude
+      this.targetHeading = leg.heading;
 
-    if (this.activeWaypoint) {
+      // Altitude Constraint
+      if (leg.altConstraint) {
+        // If exact constraint (AT), force target
+        if (leg.zConstraint === "AT") {
+          this.targetAltitude = leg.altConstraint;
+        }
+        // If BELOW constraint, and we are above, descend.
+        else if (leg.zConstraint === "BELOW") {
+          if (this.targetAltitude > leg.altConstraint) {
+            this.targetAltitude = leg.altConstraint;
+          }
+          // Also force if current altitude is way above?
+          // Usually we just set target.
+        }
+        // If ABOVE constraint, and we are below, climb (or maintain).
+        else if (leg.zConstraint === "ABOVE") {
+          if (this.targetAltitude < leg.altConstraint) {
+            this.targetAltitude = leg.altConstraint;
+          }
+        }
+        // Default (Legacy behavior or unspecified):
+        // For Arrivals (usually descent): If target > constraint, descend?
+        // Or "At or Above" is common default.
+        // Let's assume default is "AT" for safety if not specified?
+        // Previously we just ignored it or user complained it was "At or Above".
+        // Let's defaulted to AT if undefined, or keep current behavior?
+        // Current behavior didn't use it.
+        // Let's default to AT for TF legs if not specified,
+        // but only if we are in "Managed Mode" (Arrival/Departure).
+        else {
+          // Default: AT or ABOVE logic?
+          // User complained "All became designated or above".
+          // So likely we want to respect it as AT if no type constraint?
+          // Let's treat as AT for now.
+          this.targetAltitude = leg.altConstraint;
+        }
+      }
+      // Continue until altitude reached
+      if (this.altitude >= leg.altConstraint) {
+        console.log(
+          `${this.callsign} reached VA altitude ${leg.altConstraint}`,
+        );
+        this.activeLeg = null; // Move to next
+        this.activeWaypoint = null;
+      }
+    } else if (leg.type === "TF" || leg.type === "DF") {
+      // Track/Direct to Fix
+      if (!this.activeWaypoint) {
+        const wp = getWp(leg.waypoint);
+        if (wp) {
+          this.activeWaypoint = wp;
+          console.log(`${this.callsign} proceeding to ${wp.name}`);
+        } else {
+          console.warn(`Waypoint ${leg.waypoint} not found!`);
+          this.activeLeg = null; // Skip
+          return;
+        }
+      }
+
       const dx = this.activeWaypoint.x - this.x;
       const dy = this.activeWaypoint.y - this.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // 方位計算 (ATC Heading: 北0, 時計回り)
-      // atan2(dy, dx) returns angle from X axis (East).
-      // Math Heading needs transformation.
-      // 0 deg (North) -> (0, 1) in math (if Y up)? No, Y is up in Math.
-      // In our system: Y is North? No.
-      // Let's check coord system:
-      // Game.ts: const sy = this.CY - (ac.logic.y * this.SCALE); // 北が Logic Y+
-      // So Y+ is North. X+ is East.
-      // Heading 0 = North (Y+). Heading 90 = East (X+).
-      // Math angle starts 0 at X+ and goes counter-clockwise.
-      // so Math 0 = East (H90). Math 90 = North (H0).
-      // Heading = 90 - MathDeg.
-
+      // Heading Calc
       const mathRad = Math.atan2(dy, dx);
       const mathDeg = (mathRad * 180) / Math.PI;
       let targetH = 90 - mathDeg;
       if (targetH < 0) targetH += 360;
-
       this.targetHeading = targetH;
 
-      // 高度指定があれば適用
-      if (this.activeWaypoint.z !== undefined) {
-        this.targetAltitude = this.activeWaypoint.z;
+      // Speed Limit
+      if ((leg.type === "TF" || leg.type === "DF") && leg.speedLimit) {
+        // Force speed to limit if we are faster?
+        // Or just set it as a target?
+        // User expects deceleration.
+        if (this.targetSpeed > leg.speedLimit) {
+          this.targetSpeed = leg.speedLimit;
+        }
       }
 
-      // 速度制限があれば適用
-      if (this.activeWaypoint.speedLimit !== undefined) {
-        // 現在のターゲット速度が制限を超えていたら下げる
-        // または、強制的にその速度にする？ "上限"なので超えてなければそのままでいいが
-        // Route Flightとしては指定速度に合わせるのが一般的
-        this.targetSpeed = this.activeWaypoint.speedLimit;
+      // Altitude Constraint
+      if ((leg.type === "TF" || leg.type === "DF") && leg.altConstraint) {
+        // Apply Constraint Logic
+        if (leg.zConstraint === "AT") {
+          this.targetAltitude = leg.altConstraint;
+        } else if (leg.zConstraint === "BELOW") {
+          if (this.targetAltitude > leg.altConstraint) {
+            this.targetAltitude = leg.altConstraint;
+          }
+        } else if (leg.zConstraint === "ABOVE") {
+          if (this.targetAltitude < leg.altConstraint) {
+            this.targetAltitude = leg.altConstraint;
+          }
+        } else {
+          // Default to AT (User Preference)
+          this.targetAltitude = leg.altConstraint;
+        }
       }
 
-      // 到達判定 (1NM以内)
+      // Reached?
       if (dist < 1.0) {
         console.log(`${this.callsign} reached ${this.activeWaypoint.name}`);
-        this.activeWaypoint = null; // 次のフレームで次を取得
+        this.activeLeg = null;
+        this.activeWaypoint = null;
       }
+    }
+  }
+
+  /**
+   * ナビゲーションロジックの更新 (Route Following)
+   */
+  updateNavigation(airportWaypoints: Waypoint[]) {
+    if (this.flightPlan.length === 0 && !this.activeLeg) return;
+
+    if (!this.activeLeg && this.flightPlan.length > 0) {
+      this.activeLeg = this.flightPlan.shift()!;
+    }
+
+    if (this.activeLeg) {
+      this.processLeg(this.activeLeg, airportWaypoints);
     }
   }
 

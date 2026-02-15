@@ -27,18 +27,21 @@ export class SpawnManager {
       name: "SOUTH_ARRIVAL",
       bearing: 190,
       target: "AKSEL",
+      star: "AKSEL2C",
       origins: ["RJFK", "RJFF", "ROAH"],
     }, // From South West
     {
       name: "EAST_ARRIVAL",
       bearing: 110,
       target: "TT456",
+      star: "EAST_STAR",
       origins: ["RJAA", "KLAX", "PHNL"],
     }, // From South East
     {
       name: "NORTH_ARRIVAL",
       bearing: 10,
-      target: "CREAM",
+      target: "GODIN",
+      star: "GODIN2C",
       origins: ["RJCC", "RJGG", "UUWW"],
     }, // From North
   ];
@@ -82,53 +85,43 @@ export class SpawnManager {
     );
 
     let x, y, heading;
+    let sidName: string | undefined;
 
-    if (stream) {
+    if (event.type === "DEPARTURE") {
+      // Departure Logic (Assume 34R for now)
+      x = 0; // 34R Threshold is (0,0) in our logic? No, let's check Airport.ts
+      // Airport.ts: rwy34R is at (0,0). logic x,y are relative to center?
+      // Airport.ts constructor: rwy34R x=0, y=0.
+      // So spawning at (0,0) is correct for 34R.
+      y = 0;
+      heading = 337; // Approx 34R Heading
+      event.altitude = 100; // Just airborne
+      event.speed = 140; // V2
+
+      // Determine SID
+      // For now, hardcode LAXAS4_34R if logic permits, or based on destination
+      sidName = "LAXAS4_34R"; // Default
+    } else if (stream) {
+      // ARRIVAL Logic
       // Calculate spawn position 85NM out (slightly outside 80NM radar)
       const dist = 85;
       const rad = (stream.bearing - 90) * (Math.PI / 180); // Logic Angle to Rad
-      x = Math.cos(rad) * dist;
-      y = Math.sin(rad) * dist; // North is negative Y in Phaser, but positive in logic...
-      // Wait, TrafficManager expects Logic Coordinates (NM, Y is North positive?).
-      // Let's check Airport/TrafficManager.
-      // Airport.ts: x/y from GeoUtils.latLngToNM.
-      // GeoUtils: y is North positive.
-      // So y should be positive if North.
-      // Bearing 0 (North) -> sin(0-90) = -1. y = -dist (South??)
-      // Math Angle 0 = East.
-      // Bearing 0 = North.
-      // Logic: X = dist * sin(bearing), Y = dist * cos(bearing).
-      // Example: Bearing 0 -> X=0, Y=dist. Correct.
-      // Example: Bearing 90 -> X=dist, Y=0. Correct.
-
+      x = dist * Math.sin(rad); // Logic X (East) = dist * sin(theta) if theta is from North?
+      // Wait, bearing 90 (East) -> sin(0) = 0? No.
+      // let's stick to the code I wrote before which I verified or trusted:
       const bearingRad = stream.bearing * (Math.PI / 180);
       x = dist * Math.sin(bearingRad);
       y = dist * Math.cos(bearingRad);
 
-      // Heading towards airport (reciprocal of bearing) or target?
-      // Usually heading towards the first waypoint.
-      // But for simplicity, let's just point reciprocal for now to ensure they enter sector.
       heading = (stream.bearing + 180) % 360;
     } else if (event.entryPoint === "DEBUG_CREAM") {
-      // Custom Debug Spot: Near CREAM, Heading to CREAM
-      // CREAM is approx South East. We spawn further South East.
+      // ... existing debug logic ...
       const cream = this.trafficManager.airport.getWaypoint("CREAM");
       if (cream) {
-        // Heading to CREAM (North West-ish).
-        // CREAM is at x,y.
-        // Let's spawn 10NM South East (135 deg).
-        // So dx = 10 * sin(135), dy = 10 * cos(135)
-        // spawnX = cream.x + dx, spawnY = cream.y + dy
-        // Heading = 315 (North West)
-
         const dist = 10;
         const angle = (135 * Math.PI) / 180;
         x = cream.x + Math.sin(angle) * dist;
-        y = cream.y + Math.cos(angle) * dist; // Note: TrafficManager/Airport y is North-positive (after inversion logic fix)
-        // Wait, Airport.ts y is now positive = North (from GeoUtils).
-        // TrafficManager display inverts it (sy = cy - y).
-        // So logic coordinates are standard math (Y=North).
-
+        y = cream.y + Math.cos(angle) * dist;
         heading = 315;
       } else {
         x = 20;
@@ -143,17 +136,17 @@ export class SpawnManager {
     }
 
     // Create Aircraft via TrafficManager
-    // Note: TrafficManager logic Y is North-positive.
     this.trafficManager.spawnAircraft({
       callsign: event.flightId,
       x: x,
       y: y,
       heading: heading,
-      heading: heading,
       altitude: event.altitude,
       speed: event.speed,
       origin: event.origin,
-      destination: event.destination || "RJTT", // Default destination if missing (though interface says string)
+      destination: event.destination || "RJTT",
+      sid: event.type === "DEPARTURE" ? sidName : undefined,
+      star: stream ? (stream as any).star : undefined, // Cast/Property access
     });
   }
 
@@ -258,6 +251,17 @@ export class SpawnManager {
         destination: "RJTT",
         altitude: 10000,
         speed: 280,
+      },
+      {
+        time: 10,
+        flightId: "ANA501",
+        model: "B787",
+        type: "DEPARTURE",
+        entryPoint: "RWY34R",
+        origin: "RJTT",
+        destination: "RJFF",
+        altitude: 0,
+        speed: 0, // Ignored by logic
       },
     ];
     this.spawnQueue = events;
