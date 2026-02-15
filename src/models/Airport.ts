@@ -92,7 +92,13 @@ export interface Waypoint {
 }
 
 export type FlightLeg =
-  | { type: "VA"; heading: number; altConstraint: number } // Heading to Altitude
+  | {
+      type: "VA";
+      heading: number;
+      altConstraint: number;
+      zConstraint?: "AT" | "ABOVE" | "BELOW";
+      speedLimit?: number;
+    } // Heading to Altitude
   | {
       type: "DF";
       waypoint: string;

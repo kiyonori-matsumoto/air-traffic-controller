@@ -134,6 +134,8 @@ export class TrafficManager {
     destination: string;
     sid?: string; // SID Name
     star?: string; // STAR Name
+    initialState?: "RADAR_CONTACT"; // Optional initial state
+    initialWaypoint?: string; // Start from this waypoint
   }) {
     const rand = Math.random();
     let wake = "M";
@@ -152,7 +154,13 @@ export class TrafficManager {
       config.destination,
       wake,
     );
-    ac.ownership = "HANDOFF_OFFERED";
+
+    // Set Ownership based on initial state
+    if (config.initialState === "RADAR_CONTACT") {
+      ac.ownership = "OWNED";
+    } else {
+      ac.ownership = "HANDOFF_OFFERED";
+    }
 
     // Assign SID if provided
     if (config.sid) {
@@ -195,6 +203,31 @@ export class TrafficManager {
         ac.approachType = config.star;
       } else {
         console.warn(`STAR ${config.star} not found.`);
+      }
+    }
+
+    // Handle initialWaypoint (Truncate plan)
+    if (config.initialWaypoint && ac.flightPlan.length > 0) {
+      const idx = ac.flightPlan.findIndex((leg) => {
+        if (leg.type === "TF" || leg.type === "DF") {
+          return leg.waypoint === config.initialWaypoint;
+        }
+        return false;
+      });
+
+      if (idx !== -1) {
+        // Keep from idx onwards
+        ac.flightPlan = ac.flightPlan.slice(idx);
+        // Ensure first leg is DF (Direct Fix)
+        if (ac.flightPlan[0].type === "TF") {
+          // Convert to DF to allow direct flight from current pos
+          const firstExp: any = ac.flightPlan[0];
+          firstExp.type = "DF";
+        }
+      } else {
+        console.warn(
+          `Initial waypoint ${config.initialWaypoint} not found in plan.`,
+        );
       }
     }
 

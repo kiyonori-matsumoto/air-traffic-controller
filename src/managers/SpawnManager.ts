@@ -10,6 +10,12 @@ export interface SpawnEvent {
   destination: string; // Name of first waypoint
   altitude: number;
   speed: number;
+  startDistance?: number; // Distance from center
+  initialState?: "RADAR_CONTACT";
+  x?: number; // Override X (NM)
+  y?: number; // Override Y (NM)
+  heading?: number; // Override Heading
+  initialWaypoint?: string; // Skip to this waypoint
 }
 
 export class SpawnManager {
@@ -64,7 +70,7 @@ export class SpawnManager {
     // Process Queue
     while (
       this.spawnQueue.length > 0 &&
-      this.spawnQueue[0].time <= this.gameTime
+      this.spawnQueue[0].time <= this.gameTime + 0.1 // Tolerance
     ) {
       const event = this.spawnQueue.shift();
       if (event) {
@@ -84,56 +90,41 @@ export class SpawnManager {
       (s) => s.name === event.entryPoint,
     );
 
-    let x, y, heading;
+    let x = 0,
+      y = 0,
+      heading = 0;
     let sidName: string | undefined;
 
     if (event.type === "DEPARTURE") {
-      // Departure Logic (Assume 34R for now)
-      x = 0; // 34R Threshold is (0,0) in our logic? No, let's check Airport.ts
-      // Airport.ts: rwy34R is at (0,0). logic x,y are relative to center?
-      // Airport.ts constructor: rwy34R x=0, y=0.
-      // So spawning at (0,0) is correct for 34R.
-      y = 0;
-      heading = 337; // Approx 34R Heading
-      event.altitude = 100; // Just airborne
-      event.speed = 140; // V2
+      sidName = "LAXAS4_34R";
+      heading = 337;
 
-      // Determine SID
-      // For now, hardcode LAXAS4_34R if logic permits, or based on destination
-      sidName = "LAXAS4_34R"; // Default
+      const dist = event.startDistance || 0;
+      if (dist > 0) {
+        const hRad = heading * (Math.PI / 180);
+        x = dist * Math.sin(hRad);
+        y = dist * Math.cos(hRad);
+      }
+      // else 0,0
     } else if (stream) {
-      // ARRIVAL Logic
-      // Calculate spawn position 85NM out (slightly outside 80NM radar)
-      const dist = 85;
-      const rad = (stream.bearing - 90) * (Math.PI / 180); // Logic Angle to Rad
-      x = dist * Math.sin(rad); // Logic X (East) = dist * sin(theta) if theta is from North?
-      // Wait, bearing 90 (East) -> sin(0) = 0? No.
-      // let's stick to the code I wrote before which I verified or trusted:
+      // ARRIVAL
+      // Calculate spawn position
+      const dist = event.startDistance || 85;
       const bearingRad = stream.bearing * (Math.PI / 180);
       x = dist * Math.sin(bearingRad);
       y = dist * Math.cos(bearingRad);
 
       heading = (stream.bearing + 180) % 360;
-    } else if (event.entryPoint === "DEBUG_CREAM") {
-      // ... existing debug logic ...
-      const cream = this.trafficManager.airport.getWaypoint("CREAM");
-      if (cream) {
-        const dist = 10;
-        const angle = (135 * Math.PI) / 180;
-        x = cream.x + Math.sin(angle) * dist;
-        y = cream.y + Math.cos(angle) * dist;
-        heading = 315;
-      } else {
-        x = 20;
-        y = -20;
-        heading = 315;
-      }
     } else {
-      // Fallback
-      x = 0;
+      // Fallbacks...
       y = -80;
       heading = 180;
     }
+
+    // Explicit override
+    if (event.x !== undefined) x = event.x;
+    if (event.y !== undefined) y = event.y;
+    if (event.heading !== undefined) heading = event.heading;
 
     // Create Aircraft via TrafficManager
     this.trafficManager.spawnAircraft({
@@ -146,7 +137,9 @@ export class SpawnManager {
       origin: event.origin,
       destination: event.destination || "RJTT",
       sid: event.type === "DEPARTURE" ? sidName : undefined,
-      star: stream ? (stream as any).star : undefined, // Cast/Property access
+      star: stream ? (stream as any).star : undefined,
+      initialState: event.initialState,
+      initialWaypoint: event.initialWaypoint,
     });
   }
 
@@ -195,23 +188,87 @@ export class SpawnManager {
   }
 
   private loadDefaultScenario() {
-    // Simple Scenario
     const events: SpawnEvent[] = [
+      // --- INITIAL TRAFFIC (Time 0) ---
+      // Distant Arrival (North)
       {
-        time: 1,
-        flightId: "TEST01",
-        model: "B737",
+        time: 0,
+        flightId: "JAL501",
+        model: "B777",
         type: "ARRIVAL",
-        entryPoint: "DEBUG_CREAM",
+        entryPoint: "NORTH_ARRIVAL",
         origin: "RJCC",
         destination: "RJTT",
-        altitude: 4000,
-        speed: 250,
+        altitude: 13000,
+        speed: 280,
+        startDistance: 60,
+        // initialState: undefined // > 50NM -> HANDOFF_OFFERED (Yellow)
       },
+      // Mid-range Arrival (South)
       {
-        time: 5,
-        flightId: "JAL101",
-        model: "B777",
+        time: 0,
+        flightId: "ANA240",
+        model: "B787",
+        type: "ARRIVAL",
+        entryPoint: "SOUTH_ARRIVAL",
+        origin: "RJFF",
+        destination: "RJTT",
+        altitude: 9000,
+        speed: 250,
+        startDistance: 40,
+        initialState: "RADAR_CONTACT", // < 50NM -> Owned (White)
+      },
+      // Close-range Arrival (East)
+      {
+        time: 0,
+        flightId: "SKY101",
+        model: "B737",
+        type: "ARRIVAL",
+        entryPoint: "EAST_ARRIVAL",
+        origin: "RJAA",
+        destination: "RJTT",
+        altitude: 6000,
+        speed: 220,
+        startDistance: 35,
+        initialState: "RADAR_CONTACT", // < 50NM -> Owned (White)
+      },
+      // Departure (SFJ70) - Between LOCUP and TAURA
+      {
+        time: 0,
+        flightId: "SFJ70",
+        model: "A320",
+        type: "DEPARTURE",
+        entryPoint: "RWY34R",
+        origin: "RJTT",
+        destination: "RJFF",
+        altitude: 6000,
+        speed: 240,
+        x: 2.0, // calculated
+        y: -10.0, // calculated
+        heading: 225,
+        initialState: "RADAR_CONTACT",
+        initialWaypoint: "TAURA",
+      },
+      // Departure rolling
+      {
+        time: 1,
+        flightId: "ADO30",
+        model: "B737",
+        type: "DEPARTURE",
+        entryPoint: "RWY34R",
+        origin: "RJTT",
+        destination: "RJCC",
+        altitude: 0,
+        speed: 170,
+        startDistance: 0,
+        initialState: "RADAR_CONTACT", // Departure -> Owned
+      },
+
+      // --- SCHEDULED TRAFFIC ---
+      {
+        time: 15,
+        flightId: "APJ301",
+        model: "A320",
         type: "ARRIVAL",
         entryPoint: "SOUTH_ARRIVAL",
         origin: "ROAH",
@@ -221,8 +278,52 @@ export class SpawnManager {
       },
       {
         time: 30,
-        flightId: "ANA202",
-        model: "B787",
+        flightId: "JJP550",
+        model: "A320",
+        type: "ARRIVAL",
+        entryPoint: "NORTH_ARRIVAL",
+        origin: "RJGG",
+        destination: "RJTT",
+        altitude: 11000,
+        speed: 290,
+      },
+      {
+        time: 45,
+        flightId: "ANA109",
+        model: "B777",
+        type: "ARRIVAL",
+        entryPoint: "EAST_ARRIVAL",
+        origin: "KLAX",
+        destination: "RJTT",
+        altitude: 13000,
+        speed: 300,
+      },
+      {
+        time: 75,
+        flightId: "SKY305",
+        model: "B737",
+        type: "ARRIVAL",
+        entryPoint: "NORTH_ARRIVAL",
+        origin: "RJCC",
+        destination: "RJTT",
+        altitude: 10000,
+        speed: 270,
+      },
+      {
+        time: 90,
+        flightId: "JAL901",
+        model: "A350",
+        type: "ARRIVAL",
+        entryPoint: "SOUTH_ARRIVAL",
+        origin: "RJFK",
+        destination: "RJTT",
+        altitude: 12000,
+        speed: 280,
+      },
+      {
+        time: 120,
+        flightId: "JAL111",
+        model: "B767",
         type: "ARRIVAL",
         entryPoint: "EAST_ARRIVAL",
         origin: "PHNL",
@@ -231,37 +332,26 @@ export class SpawnManager {
         speed: 290,
       },
       {
-        time: 80,
-        flightId: "SKY303",
+        time: 135,
+        flightId: "SJO202",
         model: "B737",
-        type: "ARRIVAL",
-        entryPoint: "SOUTH_ARRIVAL",
-        origin: "RJFF",
-        destination: "RJTT",
-        altitude: 13000,
-        speed: 310,
-      },
-      {
-        time: 140,
-        flightId: "JAL104",
-        model: "A350",
-        type: "ARRIVAL",
-        entryPoint: "NORTH_ARRIVAL",
-        origin: "RJCC",
-        destination: "RJTT",
-        altitude: 10000,
-        speed: 280,
-      },
-      {
-        time: 10,
-        flightId: "ANA501",
-        model: "B787",
         type: "DEPARTURE",
         entryPoint: "RWY34R",
         origin: "RJTT",
-        destination: "RJFF",
+        destination: "ZSPD",
         altitude: 0,
-        speed: 0, // Ignored by logic
+        speed: 0,
+      },
+      {
+        time: 165,
+        flightId: "ANA221",
+        model: "B787",
+        type: "ARRIVAL",
+        entryPoint: "SOUTH_ARRIVAL",
+        origin: "ROAH",
+        destination: "RJTT",
+        altitude: 12000,
+        speed: 300,
       },
     ];
     this.spawnQueue = events;

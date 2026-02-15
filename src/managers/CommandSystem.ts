@@ -95,6 +95,9 @@ export class CommandSystem {
       const val = parseInt(headingMatch[1]);
       result.pendingUpdates.push(() => {
         ac.targetHeading = val;
+        ac.activeLeg = null; // Vectoring overrides LNAV
+        ac.activeWaypoint = null;
+        ac.flightPlan = []; // Clear Route (Enter Heading Mode)
       });
       const phrase = `turn left heading ${val}`;
       this.addLogs(buffers, phrase, phrase, phrase);
