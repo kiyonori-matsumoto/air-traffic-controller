@@ -21,7 +21,8 @@
     },
     "devDependencies": {
         "typescript": "~5.7.2",
-        "vite": "^6.3.1"
+        "vite": "^6.3.1",
+        "vitest": "^4.0.18"
     },
     "dependencies": {
         "phaser": "^3.90.0",
