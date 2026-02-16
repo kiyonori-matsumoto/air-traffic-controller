@@ -220,6 +220,47 @@ export class Autopilot {
   }
 
   private calculateVertical() {
+    // If GS or FLARE, do not use MCP or VNAV logic.
+    if (this.verticalMode === "GS" || this.verticalMode === "FLARE") {
+      if (this.capturedRunway && this.aircraft.state === "LANDING") {
+        const rwy = this.capturedRunway;
+        const dx = this.aircraft.x - rwy.x;
+        const dy = this.aircraft.y - rwy.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // 3-degree glide slope: ~318 ft per NM
+        // (tan(3deg) * 6076ft/NM = 0.0524 * 6076 = 318.4)
+        const idealAlt = Math.floor(dist * 318.44);
+
+        if (idealAlt < this.aircraft.altitude) {
+          this.aircraft.targetAltitude = idealAlt;
+        } else {
+          // If we are below GS, maintain current altitude until intercept?
+          // Standard behavior: Maintain Level until GS intercept from below.
+          // Current logic: target = ideal. If ideal > current, we climb?
+          // No, we should not climb to catch GS from below usually?
+          // But if we are *on* GS (captured), we follow it.
+          // Let's stick to simple logic: Target = ideal.
+          // But wait, if ideal > current, that means we are BELOW glide slope.
+          // We should MAINTAIN current altitude (or MCP) to intercept.
+
+          // However, if we already captured, we might have dipped below?
+          // Let's just track the ideal path for now.
+
+          // Original logic was:
+          // if (idealAlt > this.aircraft.altitude) target = current (don't climb)
+          // else target = ideal (descend)
+
+          if (idealAlt > this.aircraft.altitude) {
+            this.aircraft.targetAltitude = this.aircraft.altitude;
+          } else {
+            this.aircraft.targetAltitude = idealAlt;
+          }
+        }
+      }
+      return;
+    }
+
     // Default: Pass MCP to Target
     let target = this.mcpAltitude;
 
@@ -362,6 +403,9 @@ export class Autopilot {
     }
   }
 
+  // Captured Runway for Approach Tracking
+  private capturedRunway: Runway | null = null;
+
   public manageApproach(runways: Runway[]): boolean {
     if (this.aircraft.state === "FLYING") {
       // ILS Capture Logic
@@ -379,26 +423,26 @@ export class Autopilot {
           this.aircraft.targetSpeed = 140;
           this.lateralMode = "LOC";
           this.verticalMode = "GS";
+          this.capturedRunway = rwy;
           return true;
         }
       }
     } else if (this.aircraft.state === "LANDING") {
       // LOC/GS Tracking
-      // For now, assume first runway created the capture or is the target
-      // Ideally we should store which runway we captured.
-      const rwy = runways[0];
+      const rwy = this.capturedRunway;
+      if (!rwy) {
+        // Should not happen if state is LANDING, but safe-guard
+        this.aircraft.state = "FLYING";
+        return true;
+      }
 
       const dx = this.aircraft.x - rwy.x;
       const dy = this.aircraft.y - rwy.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       // 1. Glide Slope (GS)
-      const idealAlt = Math.floor(dist * 318.44);
-      if (idealAlt > this.aircraft.altitude) {
-        this.aircraft.targetAltitude = this.aircraft.altitude;
-      } else {
-        this.aircraft.targetAltitude = idealAlt;
-      }
+      // Height calculation moved to calculateVertical()
+      // We just need to ensure verticalMode is GS.
 
       // 2. Localizer (LOC)
       const rwyRad = (90 - rwy.heading) * (Math.PI / 180);
