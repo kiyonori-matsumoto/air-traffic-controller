@@ -273,6 +273,12 @@ export class CommandSystem {
 
         result.pendingUpdates.push(() => {
           ac.autopilot.activateFlightPlan(newPlan, "ILS Z 34R");
+          // Set MCP Altitude to first waypoint constraint (or reasonable value) to allow VNAV descent
+          if (newPlan.length > 0 && newPlan[0].altConstraint) {
+            ac.autopilot.mcpAltitude = newPlan[0].altConstraint;
+          } else {
+            ac.autopilot.mcpAltitude = 4000; // Default for IO Approach
+          }
         });
         const phrase = "cleared ILS Zulu Runway 34 Right approach";
         const voicePhrase =

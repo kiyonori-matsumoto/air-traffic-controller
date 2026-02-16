@@ -183,6 +183,7 @@ export class TrafficManager {
         }
         ac.targetAltitude = maxAlt;
         ac.autopilot.mcpAltitude = maxAlt;
+        ac.autopilot.speedMode = "FMS";
       } else {
         console.warn(`SID ${config.sid} not found in Airport data.`);
       }

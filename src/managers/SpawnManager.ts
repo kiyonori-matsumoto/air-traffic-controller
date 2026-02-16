@@ -342,7 +342,7 @@ export class SpawnManager {
         origin: "RJTT",
         destination: "ZSPD",
         altitude: 0,
-        speed: 0,
+        speed: 150,
       },
       {
         time: 165,

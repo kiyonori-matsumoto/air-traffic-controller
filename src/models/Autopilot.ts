@@ -1,4 +1,4 @@
-import { Aircraft } from "./Aircraft";
+import { IAircraft } from "./IAircraft";
 import { FlightLeg, Waypoint, Runway } from "./Airport";
 
 export type LateralMode = "HDG" | "LNAV" | "LOC" | "ROLLOUT";
@@ -25,7 +25,7 @@ export class Autopilot {
   public mcpAltitude: number;
   public mcpSpeed: number;
 
-  constructor(private aircraft: Aircraft) {
+  constructor(private aircraft: IAircraft) {
     this.mcpHeading = aircraft.heading;
     this.mcpAltitude = aircraft.altitude;
     this.mcpSpeed = aircraft.speed;
@@ -346,7 +346,9 @@ export class Autopilot {
 
             let targetAlt = this.mcpAltitude;
 
-            if (type === "AT" || type === "BELOW") {
+            if (type === "AT") {
+              targetAlt = constraint;
+            } else if (type === "BELOW") {
               targetAlt = Math.min(this.mcpAltitude, constraint);
             } else if (type === "ABOVE") {
               // Goal is MCP. Ensure we don't *stop* below constraint?
@@ -375,7 +377,9 @@ export class Autopilot {
 
             let targetAlt = this.mcpAltitude;
 
-            if (type === "AT" || type === "ABOVE") {
+            if (type === "AT") {
+              targetAlt = constraint;
+            } else if (type === "ABOVE") {
               targetAlt = Math.max(this.mcpAltitude, constraint);
             } else if (type === "BELOW") {
               // We need to be below. If MCP is below, targeting MCP is fine.
@@ -405,8 +409,9 @@ export class Autopilot {
     if (this.speedMode !== "FMS") return;
 
     // DEPARTURE / CLIMB Logic
-    // Check if we are in a climbing phase (Target Alt > Current Alt)
-    if (this.aircraft.targetAltitude > this.aircraft.altitude + 100) {
+    // Check if we are in a climbing phase (MCP Alt > Current Alt + margin)
+    // We use MCP because targetAltitude might be constrained (e.g. 700ft) while we intend to climb to 30000ft.
+    if (this.mcpAltitude > this.aircraft.altitude + 100) {
       // Speed Schedule
       let limitSpeed = 999;
 
