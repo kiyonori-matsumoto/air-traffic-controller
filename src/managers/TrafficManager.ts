@@ -166,12 +166,12 @@ export class TrafficManager {
     if (config.sid) {
       const sidLegs = this.airport.sids[config.sid];
       if (sidLegs) {
-        ac.flightPlan = [...sidLegs]; // Clone array to be safe
-        ac.approachType = config.sid; // Show SID name in approach field
+        ac.autopilot.activateFlightPlan([...sidLegs], config.sid);
+        ac.autopilot.verticalMode = "VNAV_ALT"; // Default to VNAV_ALT for departures
 
         // For Departures with SID, set initial target altitude high to ensure climb through constraints
         // Finding the max constraint or default to FL200
-        let maxAlt = 20000;
+        let maxAlt = 30000;
         for (const leg of sidLegs) {
           if (
             leg.type === "TF" &&
@@ -182,6 +182,7 @@ export class TrafficManager {
           }
         }
         ac.targetAltitude = maxAlt;
+        ac.autopilot.mcpAltitude = maxAlt;
       } else {
         console.warn(`SID ${config.sid} not found in Airport data.`);
       }
@@ -190,8 +191,8 @@ export class TrafficManager {
       const starWps = this.airport.stars[config.star];
       if (starWps) {
         // Convert string[] to FlightLeg[] (TF)
-        ac.flightPlan = starWps.map((wpName) => ({
-          type: "TF",
+        const plan = starWps.map((wpName) => ({
+          type: "TF" as const,
           waypoint: wpName,
           // Look up waypoint for constraints?
           // Airport.ts has waypoints with Z and speedLimit.
@@ -200,7 +201,7 @@ export class TrafficManager {
           zConstraint: this.airport.getWaypoint(wpName)?.zConstraint,
           speedLimit: this.airport.getWaypoint(wpName)?.speedLimit,
         }));
-        ac.approachType = config.star;
+        ac.autopilot.activateFlightPlan(plan, config.star);
       } else {
         console.warn(`STAR ${config.star} not found.`);
       }

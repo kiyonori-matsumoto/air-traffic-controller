@@ -2,7 +2,13 @@ import { Aircraft } from "./Aircraft";
 import { FlightLeg, Waypoint, Runway } from "./Airport";
 
 export type LateralMode = "HDG" | "LNAV" | "LOC" | "ROLLOUT";
-export type VerticalMode = "ALT" | "FLCH" | "VNAV" | "GS" | "FLARE";
+export type VerticalMode =
+  | "ALT"
+  | "FLCH"
+  | "VNAV"
+  | "VNAV_ALT"
+  | "GS"
+  | "FLARE";
 export type SpeedMode = "MANUAL" | "FMS";
 
 export class Autopilot {
@@ -288,7 +294,7 @@ export class Autopilot {
         // Let's trust the Leg for VA.
       } else if (
         (leg.type === "TF" || leg.type === "DF") &&
-        this.verticalMode === "VNAV"
+        (this.verticalMode === "VNAV" || this.verticalMode === "VNAV_ALT")
       ) {
         // Look ahead to next leg for Descent Floor
         let nextConstraint = -1;
@@ -305,47 +311,87 @@ export class Autopilot {
           }
         }
 
-        if (leg.altConstraint || nextConstraint !== -1) {
-          const constraint = leg.altConstraint || 0;
-          const type = leg.zConstraint || "AT";
-          const currentAlt = this.aircraft.altitude;
+        let effectiveConstraint: number | undefined;
+        let effectiveType: string = "AT";
 
-          // Challenge: Are we climbing or descending?
-          // Depends on MCP vs Current?
-          // Or Flight Plan Profile?
-          // Simplified: Look at MCP vs Constraint.
-
-          // Case 1: Descent (MCP < Current)
-          if (this.mcpAltitude < constraint) {
-            // DESCENT
-            if (type === "AT" || type === "ABOVE") {
-              // Cannot go below constraint
-              target = Math.max(this.mcpAltitude, constraint);
-            } else {
-              // BELOW or no constraint: go to MCP
-              target = this.mcpAltitude;
-            }
-            if (this.debug) {
-              console.log(
-                `VNAV Descent: MCP ${this.mcpAltitude} < Cur ${Math.round(currentAlt)}. Cons ${type} ${constraint} -> Target ${target}`,
-              );
-            }
+        if (leg.altConstraint) {
+          effectiveConstraint = leg.altConstraint;
+          effectiveType = leg.zConstraint || "AT";
+        } else if (nextConstraint !== -1) {
+          effectiveConstraint = nextConstraint;
+          // We need the type of the next constraint, but we didn't save it.
+          // Let's re-access nextLeg or store it above.
+          // For simplicity/safety, let's look it up again or just assume conservative?
+          // No, we need the type.
+          if (this.aircraft.flightPlan.length > 0) {
+            effectiveType = this.aircraft.flightPlan[0].zConstraint || "AT";
           }
-          // Case 2: Climb (MCP > Current)
-          else if (this.mcpAltitude > constraint) {
-            // CLIMB
+        }
+
+        if (effectiveConstraint !== undefined) {
+          const constraint = effectiveConstraint;
+          const type = effectiveType;
+
+          // Refined VNAV Logic (User Request)
+          // Determine Phase: CLIMB or DESCENT/CRUISE based on MCP vs Current?
+          // Actually, we should check MCP vs Current Altitude.
+
+          if (this.mcpAltitude > this.aircraft.altitude + 100) {
+            // --- CLIMB PHASE ---
+            // Rule:
+            // 1. Target = MCP (Default)
+            // 2. Check Constraint
+            //    - At or Below (BELOW or AT): Target = min(MCP, Constraint)
+            //    - At or Above (ABOVE): Target = MCP (Ignore constraint for target, just monitor)
+
+            let targetAlt = this.mcpAltitude;
+
             if (type === "AT" || type === "BELOW") {
-              // Cannot go above constraint
-              target = Math.min(this.mcpAltitude, constraint);
-            } else {
-              // ABOVE or no constraint: go to MCP
-              target = this.mcpAltitude;
+              targetAlt = Math.min(this.mcpAltitude, constraint);
+            } else if (type === "ABOVE") {
+              // Goal is MCP. Ensure we don't *stop* below constraint?
+              // No, "At or Above" means we just need to be above it.
+              // If MCP is above it, we are fine targeting MCP.
+              targetAlt = this.mcpAltitude;
             }
+
+            // If target is modified by constraint, we are effectively in VNAV_ALT?
+            // (Optional UI enhancement, keeping VNAV for now or toggle if needed)
+
+            target = targetAlt;
+
             if (this.debug) {
               console.log(
-                `VNAV Climb: MCP ${this.mcpAltitude} > Cur ${Math.round(currentAlt)}. Cons ${type} ${constraint} -> Target ${target}`,
+                `VNAV Climb: MCP ${this.mcpAltitude}. Constraint ${type} ${constraint} -> Target ${target}`,
               );
             }
+          } else if (this.mcpAltitude < this.aircraft.altitude - 100) {
+            // --- DESCENT PHASE ---
+            // Standard VNAV Descent behavior (often Path based, but here simple step-down)
+            // Rule (Assumed similar logic or standard):
+            // - At or Above: Target = max(MCP, Constraint) ?
+            //   (Don't descend below constraint)
+            // - At or Below: Target = MCP (Target is lower, so just go down)
+
+            let targetAlt = this.mcpAltitude;
+
+            if (type === "AT" || type === "ABOVE") {
+              targetAlt = Math.max(this.mcpAltitude, constraint);
+            } else if (type === "BELOW") {
+              // We need to be below. If MCP is below, targeting MCP is fine.
+              targetAlt = this.mcpAltitude;
+            }
+
+            target = targetAlt;
+
+            if (this.debug) {
+              console.log(
+                `VNAV Descent: MCP ${this.mcpAltitude}. Constraint ${type} ${constraint} -> Target ${target}`,
+              );
+            }
+          } else {
+            // Level / Cruise
+            target = this.mcpAltitude;
           }
         }
       }

@@ -16,6 +16,7 @@ export interface SpawnEvent {
   y?: number; // Override Y (NM)
   heading?: number; // Override Heading
   initialWaypoint?: string; // Skip to this waypoint
+  sid?: string; // SID Name (Departure)
 }
 
 export class SpawnManager {
@@ -96,7 +97,7 @@ export class SpawnManager {
     let sidName: string | undefined;
 
     if (event.type === "DEPARTURE") {
-      sidName = "LAXAS4_34R";
+      sidName = event.sid || "LAXAS4_34R";
       heading = 337;
 
       const dist = event.startDistance || 0;
@@ -262,6 +263,7 @@ export class SpawnManager {
         speed: 170,
         startDistance: 0,
         initialState: "RADAR_CONTACT", // Departure -> Owned
+        sid: "LAXAS4_34R",
       },
 
       // --- SCHEDULED TRAFFIC ---
