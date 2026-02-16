@@ -126,33 +126,26 @@ describe("Autopilot Logic", () => {
       expect(aircraft.targetAltitude).toBe(5000);
     });
 
-    it("should NOT climb on unconstrained leg if future constraint is lower", () => {
-      // Current Leg: Unconstrained
-      // Future Leg: AT 3000
-      // MCP: 13000 (High)
-      // Current Alt: 5000
+    it("should update MCP altitude to constraint during descent (Step Down Logic)", () => {
+      // Step Down Logic means if we have a constraint "AT 8000" and MCP 4000,
+      // We should target 8000 first, and set MCP to 8000 so we don't bust it.
 
-      aircraft.altitude = 5000;
-      autopilot.mcpAltitude = 13000;
+      aircraft.flightPlan = [];
+      aircraft.altitude = 13000;
+      autopilot.mcpAltitude = 4000;
 
-      // Current Leg (Unconstrained)
-      const leg1: any = { type: "TF", waypoint: "FREE" };
-      // Future Leg (Constrained)
-      const leg2: any = {
+      const leg: FlightLeg = {
         type: "TF",
-        waypoint: "RESTRICT",
-        altConstraint: 3000,
+        waypoint: "WPT1",
+        altConstraint: 8000,
         zConstraint: "AT",
       };
-
-      aircraft.activeLeg = leg1;
-      aircraft.flightPlan = [leg2]; // Next leg in plan
+      aircraft.activeLeg = leg;
 
       (autopilot as any).calculateVertical();
 
-      // Should NOT target 13000. Should stay at 5000 (or better: target next constraint 3000 if we were smarter, but maintaining 5000 is safe failure mode compared to climbing).
-      // My logic says target = aircraft.altitude.
-      expect(aircraft.targetAltitude).toBe(5000);
+      expect(aircraft.targetAltitude).toBe(8000);
+      expect(autopilot.mcpAltitude).toBe(8000); // Check side effect
     });
   });
 

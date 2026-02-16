@@ -353,6 +353,7 @@ export class CommandSystem {
             ac.autopilot.activateFlightPlan(newPlan);
           });
           result.handled = true;
+          console.log(`newPlan: ${JSON.stringify(newPlan)}`);
           return true;
         }
       }

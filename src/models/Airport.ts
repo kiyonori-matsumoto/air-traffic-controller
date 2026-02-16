@@ -160,7 +160,14 @@ export class Airport {
     // But CAMYU is a real fix (or similar).
     // Let's definition KAIHO, CAMYU, ADDUM, DAIGO with LatLng.
 
-    const rawWaypoints = [
+    const rawWaypoints: {
+      name: string;
+      lat: number;
+      lon: number;
+      z?: number;
+      zConstraint?: "AT" | "ABOVE" | "BELOW";
+      speedLimit?: number;
+    }[] = [
       // TT456: 345329.3N / 1401440.2E
       // 34 + 53/60 + 29.3/3600 = 34.891472
       // 140 + 14/60 + 40.2/3600 = 140.244500
@@ -268,36 +275,44 @@ export class Airport {
         name: "COPSE",
         lat: 35.783, // 35°46'58.8"N
         lon: 140.2015, // 140°12'05.4"E [cite: 359]
+        z: 8000, // At 8000
+        zConstraint: "AT",
       },
       {
         name: "COACH",
         lat: 35.626667, // 35°37'36.0"N
         lon: 140.20875, // 140°12'31.5"E
-        z: 8000, // At or Above 8000? Usually starts slowing down. Chart says At or Above 8000 usually.
-        zConstraint: "ABOVE",
+        z: 8000, // At 8000
+        zConstraint: "AT",
         speedLimit: 210, //
       },
       {
         name: "TT465",
         lat: 35.494222, // 35°29'39.2"N
         lon: 140.209833, // 140°12'35.4"E [cite: 359]
+        z: 8000, // At 8000
+        zConstraint: "AT",
       },
       {
         name: "TT466",
         lat: 35.4275, // 35°25'39.0"N
         lon: 140.311139, // 140°18'40.1"E [cite: 359]
+        z: 8000, // At 8000
+        zConstraint: "AT",
       },
       {
         name: "TT467",
         lat: 35.352833, // 35°21'10.2"N
         lon: 140.356778, // 140°21'24.4"E [cite: 359]
+        z: 8000, // At 8000
+        zConstraint: "AT",
       },
       {
         name: "EDDIE",
         lat: 35.2465, // 35°14'47.4"N
         lon: 140.361361, // 140°21'40.9"E
-        z: 8000, // At or Above 8000
-        zConstraint: "ABOVE",
+        z: 8000, // At 8000
+        zConstraint: "AT",
         speedLimit: 210, //
       },
       {
@@ -403,7 +418,7 @@ export class Airport {
         "EPSON",
         "CREAM",
       ],
-      GODIN2C: [
+      GODIN1C: [
         "GODIN",
         "CHIPS",
         "COLOR",

@@ -303,18 +303,18 @@ export class Autopilot {
       ) {
         // Look ahead to next leg for Descent Floor
         let nextConstraint = -1;
-        if (this.aircraft.flightPlan.length > 0) {
-          const nextLeg = this.aircraft.flightPlan[0];
-          if (
-            (nextLeg.type === "TF" || nextLeg.type === "DF") &&
-            nextLeg.altConstraint
-          ) {
-            // Only respect AT or ABOVE for floor
-            if (!nextLeg.zConstraint || nextLeg.zConstraint !== "BELOW") {
-              nextConstraint = nextLeg.altConstraint;
-            }
-          }
-        }
+        // if (this.aircraft.flightPlan.length > 0) {
+        //   const nextLeg = this.aircraft.flightPlan[0];
+        //   if (
+        //     (nextLeg.type === "TF" || nextLeg.type === "DF") &&
+        //     nextLeg.altConstraint
+        //   ) {
+        //     // Only respect AT or ABOVE for floor
+        //     if (!nextLeg.zConstraint || nextLeg.zConstraint !== "BELOW") {
+        //       nextConstraint = nextLeg.altConstraint;
+        //     }
+        //   }
+        // }
 
         let effectiveConstraint: number | undefined;
         let effectiveType: string = "AT";
@@ -413,6 +413,7 @@ export class Autopilot {
               }
 
               target = targetAlt;
+              this.mcpAltitude = targetAlt;
             } else {
               // Level / Cruise (MCP Hold)
               target = this.mcpAltitude;
