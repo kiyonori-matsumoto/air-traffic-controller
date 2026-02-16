@@ -130,6 +130,7 @@ export class SpawnManager {
     // Create Aircraft via TrafficManager
     this.trafficManager.spawnAircraft({
       callsign: event.flightId,
+      model: event.model, // Pass model
       x: x,
       y: y,
       heading: heading,

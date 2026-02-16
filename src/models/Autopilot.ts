@@ -430,44 +430,52 @@ export class Autopilot {
     // If Speed Mode is MANUAL, do not override
     if (this.speedMode !== "FMS") return;
 
-    // DEPARTURE / CLIMB Logic
-    // Check if we are in a climbing phase (MCP Alt > Current Alt + margin)
-    // We use MCP because targetAltitude might be constrained (e.g. 700ft) while we intend to climb to 30000ft.
-    if (this.mcpAltitude > this.aircraft.altitude + 100) {
-      // Speed Schedule
-      let limitSpeed = 999;
+    let limitSpeed = 999;
+    const alt = this.aircraft.altitude;
 
-      if (this.aircraft.altitude < 3000) {
-        // Initial Climb: V2 + 10-20kt
-        limitSpeed = 160;
-      } else if (this.aircraft.altitude < 10000) {
-        // Below 10k: 250kt limit
-        limitSpeed = 250;
-      } else {
-        // Above 10k: Cruise Climb
-        limitSpeed = 300;
-      }
-
-      // Apply limit to Target Speed (if not manually set lower?)
-      // Since we don't distinguish manual vs auto, we just set it.
-      // Yet, let's respect Waypoint limit if active.
-      if (
-        this.aircraft.activeWaypoint &&
-        this.aircraft.activeWaypoint.speedLimit
-      ) {
-        limitSpeed = Math.min(
-          limitSpeed,
-          this.aircraft.activeWaypoint.speedLimit,
-        );
-      }
-
-      // Gently increase target speed if current target is lower than limit
-      // AND we are not constrained by user.
-      // Simplified: Always set target speed to limit for departures.
-      // How to know if departure? Squawk? Origin?
-      // Using a simple heuristic: if climbing significantly.
-      this.aircraft.targetSpeed = limitSpeed;
+    // 1. Altitude Based Schedule (Cruise vs Terminal)
+    if (alt > 10000) {
+      limitSpeed = this.aircraft.cruiseSpeed; // Use Aircraft specific cruise speed
+    } else {
+      limitSpeed = 250; // Below 10k
     }
+
+    // 2. Climb Specific (Low Altitude Protection)
+    // Only apply strict slow speed if we are actually in takeoff/initial climb phase
+    const isClimbing = this.mcpAltitude > alt + 100;
+    if (isClimbing && alt < 3000) {
+      limitSpeed = 160;
+    }
+
+    // 3. Step Down Logic (Look Ahead)
+    // Find limits in Active Leg OR Future Legs
+    let constraintFound = false;
+
+    // Check Active Waypoint first
+    if (this.aircraft.activeWaypoint?.speedLimit) {
+      limitSpeed = Math.min(
+        limitSpeed,
+        this.aircraft.activeWaypoint.speedLimit,
+      );
+      constraintFound = true;
+    }
+
+    // Iterate forward to find the *next* restriction if not found yet (or even if found, to be safe against lower future constraints?)
+    // Actually, if active has 220, and next has 180, we should probably target 180 immediately?
+    // "Step Down" usually implies meeting the next constraint.
+    // Let's check future legs too.
+    for (const leg of this.aircraft.flightPlan) {
+      if (leg.speedLimit) {
+        limitSpeed = Math.min(limitSpeed, leg.speedLimit);
+        constraintFound = true;
+        // As soon as we find *a* constraint, that is the "next" one we must adhere to.
+        // We break because subsequent constraints (e.g. 200 after 210) don't matter until we pass the 210 one.
+        break;
+      }
+    }
+
+    // Apply
+    this.aircraft.targetSpeed = limitSpeed;
   }
 
   private calculateSpeed() {
@@ -496,6 +504,7 @@ export class Autopilot {
           this.aircraft.targetSpeed = 140;
           this.lateralMode = "LOC";
           this.verticalMode = "GS";
+          this.speedMode = "MANUAL"; // Disable FMS override
           this.capturedRunway = rwy;
           return true;
         }
@@ -565,6 +574,7 @@ export class Autopilot {
     }
     this.lateralMode = "LNAV";
     this.verticalMode = "VNAV";
+    this.speedMode = "FMS"; // Added
   }
 
   public setAltitude(alt: number) {

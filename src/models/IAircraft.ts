@@ -11,6 +11,7 @@ export interface IAircraft {
   targetAltitude: number;
   targetSpeed: number;
   targetHeading: number;
+  cruiseSpeed: number; // Added cruiseSpeed
   flightPlan: FlightLeg[];
   activeLeg: FlightLeg | null;
   activeWaypoint: Waypoint | null;

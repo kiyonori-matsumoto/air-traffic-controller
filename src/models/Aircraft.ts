@@ -10,6 +10,7 @@ export class Aircraft {
   speed: number; /// 時速(kt)
   heading: number; /// 方角(deg)
   altitude: number; /// 高度(ft)
+  cruiseSpeed: number; /// 巡航速度(kt)
 
   // レーダー計測位置 (表示用)
   measuredX: number;
@@ -55,6 +56,7 @@ export class Aircraft {
     origin: string,
     destination: string,
     wakeTurbulence: string = "M",
+    cruiseSpeed: number = 300, // Default 300kt
   ) {
     this.callsign = callsign;
     this.x = x;
@@ -63,6 +65,7 @@ export class Aircraft {
     this.heading = heading;
     this.altitude = altitude;
     this.wakeTurbulence = wakeTurbulence;
+    this.cruiseSpeed = cruiseSpeed;
     this.targetHeading = heading;
     this.targetAltitude = altitude;
     this.targetSpeed = speed;

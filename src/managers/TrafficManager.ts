@@ -125,6 +125,7 @@ export class TrafficManager {
 
   public spawnAircraft(config: {
     callsign: string;
+    model: string; // Added model
     x: number;
     y: number;
     heading: number;
@@ -143,6 +144,21 @@ export class TrafficManager {
     else if (rand > 0.75) wake = "H";
     else if (rand < 0.2) wake = "L";
 
+    // Cruise Speed Logic based on Model
+    let cruiseSpeed = 300;
+    const modelUpper = config.model.toUpperCase();
+    if (
+      modelUpper.includes("B777") ||
+      modelUpper.includes("B787") ||
+      modelUpper.includes("A350")
+    ) {
+      cruiseSpeed = 320;
+    } else if (modelUpper.includes("B767") || modelUpper.includes("A330")) {
+      cruiseSpeed = 300;
+    } else if (modelUpper.includes("B737") || modelUpper.includes("A320")) {
+      cruiseSpeed = 280;
+    }
+
     const ac = new Aircraft(
       config.callsign,
       config.x,
@@ -153,6 +169,7 @@ export class TrafficManager {
       config.origin,
       config.destination,
       wake,
+      cruiseSpeed, // Pass cruise speed
     );
 
     // Set Ownership based on initial state

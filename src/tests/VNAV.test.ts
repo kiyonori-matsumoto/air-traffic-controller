@@ -97,4 +97,32 @@ describe("VNAV Climb Logic", () => {
     // Expect target to be 6000
     expect(aircraft.targetAltitude).toBe(6000);
   });
+  it("should respect altitude constraint even if previous leg was unconstrained", () => {
+    // Regression Test: User reported constraints being ignored.
+    // Scenario: Cruise at 13000 -> WPT1 (No Limit) -> WPT2 (AT 8000).
+    // MCP is set to 2000.
+    // At WPT1, it should target 8000 (Step Down) because WPT2 has 8000.
+
+    aircraft.altitude = 13000;
+    aircraft.autopilot.mcpAltitude = 2000;
+
+    // Active Leg: WPT1 (Unconstrained)
+    const leg1: FlightLeg = { type: "TF", waypoint: "WPT1" };
+    aircraft.activeLeg = leg1;
+
+    // Next Leg: WPT2 (AT 8000)
+    const leg2: FlightLeg = {
+      type: "TF",
+      waypoint: "WPT2",
+      altConstraint: 8000,
+      zConstraint: "AT",
+    };
+    aircraft.flightPlan = [leg2];
+
+    aircraft.autopilot.update(1);
+
+    // Should target 8000, NOT 2000 (MCP)
+    expect(aircraft.targetAltitude).toBe(8000);
+    expect(aircraft.autopilot.mcpAltitude).toBe(8000);
+  });
 });
