@@ -361,9 +361,9 @@ export class Autopilot {
             target = targetAlt;
 
             if (this.debug) {
-              console.log(
-                `VNAV Climb: MCP ${this.mcpAltitude}. Constraint ${type} ${constraint} -> Target ${target}`,
-              );
+              // console.log(
+              //   `VNAV Climb: MCP ${this.mcpAltitude}. Constraint ${type} ${constraint} -> Target ${target}`,
+              // );
             }
           } else if (this.mcpAltitude < this.aircraft.altitude - 100) {
             // --- DESCENT PHASE ---
@@ -385,9 +385,9 @@ export class Autopilot {
             target = targetAlt;
 
             if (this.debug) {
-              console.log(
-                `VNAV Descent: MCP ${this.mcpAltitude}. Constraint ${type} ${constraint} -> Target ${target}`,
-              );
+              // console.log(
+              //   `VNAV Descent: MCP ${this.mcpAltitude}. Constraint ${type} ${constraint} -> Target ${target}`,
+              // );
             }
           } else {
             // Level / Cruise
