@@ -1,4 +1,4 @@
-import { Autopilot } from "./Autopilot";
+import type { Autopilot } from "./Autopilot";
 import { FlightLeg, Waypoint } from "./Airport";
 
 export interface IAircraft {

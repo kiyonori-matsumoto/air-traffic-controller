@@ -319,7 +319,7 @@ export class SpawnManager {
         entryPoint: "SOUTH_ARRIVAL",
         origin: "RJFK",
         destination: "RJTT",
-        altitude: 12000,
+        altitude: 13000,
         speed: 280,
       },
       {
