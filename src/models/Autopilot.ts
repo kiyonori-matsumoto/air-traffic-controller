@@ -432,6 +432,22 @@ export class Autopilot {
   public setHeading(hdg: number) {
     this.mcpHeading = hdg;
     this.lateralMode = "HDG";
+
+    // Clear LNAV state
+    this.aircraft.flightPlan = [];
+    this.aircraft.activeLeg = null;
+    this.aircraft.activeWaypoint = null;
+  }
+
+  public activateFlightPlan(plan: FlightLeg[], approachType?: string) {
+    this.aircraft.flightPlan = plan;
+    this.aircraft.activeLeg = null;
+    this.aircraft.activeWaypoint = null;
+    if (approachType) {
+      this.aircraft.approachType = approachType;
+    }
+    this.lateralMode = "LNAV";
+    this.verticalMode = "VNAV";
   }
 
   public setAltitude(alt: number) {

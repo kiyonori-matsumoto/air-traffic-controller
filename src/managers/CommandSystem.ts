@@ -97,13 +97,6 @@ export class CommandSystem {
       const val = parseInt(headingMatch[1]);
       result.pendingUpdates.push(() => {
         ac.autopilot.setHeading(val);
-        // Clean up LNAV state if needed, though Autopilot Mode switch handles the logical gate.
-        // We might want to clear activeLeg/Waypoint to "reset" LNAV progress if we switch back later?
-        // Current logic in handleHeading cleared them.
-        // Let's keep clearing them to be safe and consistent with "breaking" LNAV.
-        ac.activeLeg = null;
-        ac.activeWaypoint = null;
-        ac.flightPlan = [];
       });
       const phrase = `turn left heading ${val}`;
       this.addLogs(buffers, phrase, phrase, phrase);
@@ -215,12 +208,7 @@ export class CommandSystem {
           }
 
           result.pendingUpdates.push(() => {
-            ac.flightPlan = newPlan;
-            ac.activeWaypoint = null;
-            ac.activeLeg = null; // Reset active leg
-            ac.approachType = starName;
-            ac.autopilot.lateralMode = "LNAV";
-            ac.autopilot.verticalMode = "VNAV";
+            ac.autopilot.activateFlightPlan(newPlan, starName);
           });
           const phrase = `cleared to ${fixName} via ${starName} arrival`;
           this.addLogs(
@@ -277,17 +265,14 @@ export class CommandSystem {
               type: "TF",
               waypoint: wpName,
               speedLimit: wp?.speedLimit,
+              zConstraint: wp?.zConstraint,
+              altConstraint: wp?.z,
             });
           }
         }
 
         result.pendingUpdates.push(() => {
-          ac.flightPlan = newPlan;
-          ac.activeWaypoint = null;
-          ac.activeLeg = null;
-          ac.approachType = "ILS Z 34R";
-          ac.autopilot.lateralMode = "LNAV";
-          ac.autopilot.verticalMode = "VNAV";
+          ac.autopilot.activateFlightPlan(newPlan, "ILS Z 34R");
         });
         const phrase = "cleared ILS Zulu Runway 34 Right approach";
         const voicePhrase =
@@ -359,11 +344,7 @@ export class CommandSystem {
           }
 
           result.pendingUpdates.push(() => {
-            ac.flightPlan = newPlan;
-            ac.activeWaypoint = null;
-            ac.activeLeg = null;
-            ac.autopilot.lateralMode = "LNAV";
-            ac.autopilot.verticalMode = "VNAV";
+            ac.autopilot.activateFlightPlan(newPlan);
           });
           result.handled = true;
           return true;
