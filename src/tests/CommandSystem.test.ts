@@ -24,12 +24,13 @@ describe("CommandSystem", () => {
     const dctResult = commandSystem.handle("DCT TEST_WP", aircraft);
     dctResult.pendingUpdates.forEach((u) => u());
 
-    expect(aircraft.flightPlan.length).toBeGreaterThan(0);
+    expect(aircraft.autopilot.flightPlan.length).toBeGreaterThan(0);
     expect(aircraft.activeWaypoint).toBeNull(); // Will be set on update, but flightPlan exists
 
     // simulate updateNavigation (simplified)
-    if (aircraft.flightPlan.length > 0) {
-      aircraft.activeLeg = aircraft.flightPlan.shift()!;
+    if (aircraft.autopilot.flightPlan.length > 0) {
+      (aircraft.autopilot as any).activeLeg =
+        aircraft.autopilot.flightPlan.shift()!;
       if (aircraft.activeLeg && "waypoint" in aircraft.activeLeg) {
         aircraft.activeWaypoint = airport.getWaypoint(
           aircraft.activeLeg.waypoint,

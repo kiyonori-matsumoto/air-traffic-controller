@@ -236,7 +236,12 @@ export class Aircraft {
 
   // フライトプラン (Waypointのキュー)
   flightPlan: FlightLeg[] = [];
-  activeLeg: FlightLeg | null = null;
+  // activeLeg: FlightLeg | null = null;
+
+  public get activeLeg(): FlightLeg | null {
+    return this.autopilot.activeLeg;
+  }
+
   activeWaypoint: Waypoint | null = null; // For TF/DF legs rendering checking
 
   /**

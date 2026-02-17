@@ -208,7 +208,7 @@ export class CommandSystem {
           }
 
           result.pendingUpdates.push(() => {
-            ac.autopilot.activateFlightPlan(newPlan, starName);
+            ac.autopilot.activateFlightPlan(newPlan, "DESCENT", starName);
           });
           const phrase = `cleared to ${fixName} via ${starName} arrival`;
           this.addLogs(
@@ -272,7 +272,7 @@ export class CommandSystem {
         }
 
         result.pendingUpdates.push(() => {
-          ac.autopilot.activateFlightPlan(newPlan, "ILS Z 34R");
+          ac.autopilot.activateFlightPlan(newPlan, "APPROACH", "ILS Z 34R");
           // Set MCP Altitude to first waypoint constraint (or reasonable value) to allow VNAV descent
           if (newPlan.length > 0 && newPlan[0].altConstraint) {
             ac.autopilot.mcpAltitude = newPlan[0].altConstraint;
@@ -350,7 +350,7 @@ export class CommandSystem {
           }
 
           result.pendingUpdates.push(() => {
-            ac.autopilot.activateFlightPlan(newPlan);
+            ac.autopilot.activateFlightPlan(newPlan, "DESCENT");
           });
           result.handled = true;
           console.log(`newPlan: ${JSON.stringify(newPlan)}`);

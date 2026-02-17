@@ -251,21 +251,21 @@ export class SpawnManager {
       //   initialState: "RADAR_CONTACT",
       //   initialWaypoint: "TAURA",
       // },
-      // // Departure rolling
-      // {
-      //   time: 1,
-      //   flightId: "ADO30",
-      //   model: "B737",
-      //   type: "DEPARTURE",
-      //   entryPoint: "RWY34R",
-      //   origin: "RJTT",
-      //   destination: "RJCC",
-      //   altitude: 0,
-      //   speed: 170,
-      //   startDistance: 0,
-      //   initialState: "RADAR_CONTACT", // Departure -> Owned
-      //   sid: "LAXAS4_34R",
-      // },
+      // Departure rolling
+      {
+        time: 1,
+        flightId: "ADO30",
+        model: "B737",
+        type: "DEPARTURE",
+        entryPoint: "RWY34R",
+        origin: "RJTT",
+        destination: "RJCC",
+        altitude: 0,
+        speed: 170,
+        startDistance: 0,
+        initialState: "RADAR_CONTACT", // Departure -> Owned
+        sid: "LAXAS4_34R",
+      },
 
       // // --- SCHEDULED TRAFFIC ---
       // {

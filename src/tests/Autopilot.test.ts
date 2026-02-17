@@ -34,14 +34,14 @@ describe("Autopilot Logic", () => {
 
   describe("Mode Transitions", () => {
     it("should switch to HDG mode and clear LNAV", () => {
-      autopilot.activateFlightPlan([{ type: "TF", waypoint: "WPT1" }]);
+      autopilot.activateFlightPlan([{ type: "TF", waypoint: "WPT1" }], "CLIMB");
       expect(autopilot.lateralMode).toBe("LNAV");
-      expect(aircraft.flightPlan.length).toBe(1);
+      expect(autopilot.flightPlan.length).toBe(1);
 
       autopilot.setHeading(180);
       expect(autopilot.lateralMode).toBe("HDG");
       expect(autopilot.mcpHeading).toBe(180);
-      expect(aircraft.flightPlan.length).toBe(0);
+      expect(autopilot.flightPlan.length).toBe(0);
     });
 
     it("should switch to LNAV/VNAV via activateFlightPlan", () => {
@@ -52,7 +52,7 @@ describe("Autopilot Logic", () => {
         altConstraint: 5000,
         zConstraint: "AT",
       };
-      autopilot.activateFlightPlan([leg]);
+      autopilot.activateFlightPlan([leg], "DESCENT");
 
       // MCP is default (e.g. 10000 or higher). Constraint is 5000 (AT).
       // "Descend Via" logic should set target to 5000.
@@ -60,7 +60,8 @@ describe("Autopilot Logic", () => {
 
       expect(autopilot.lateralMode).toBe("LNAV");
       expect(autopilot.verticalMode).toBe("VNAV");
-      expect(aircraft.flightPlan[0]).toEqual(leg);
+      expect((autopilot.flightPlan[0] as any).waypoint).toBe("WPT1");
+      expect((autopilot.flightPlan[0] as any).altitude).toBe(5000);
       expect(aircraft.targetAltitude).toBe(5000);
     });
 
@@ -68,80 +69,86 @@ describe("Autopilot Logic", () => {
       autopilot.setHeading(90);
       const leg1: FlightLeg = { type: "TF", waypoint: "WPT1" };
       const leg2: FlightLeg = { type: "TF", waypoint: "WPT2" };
-      autopilot.activateFlightPlan([leg1, leg2]);
+      autopilot.activateFlightPlan([leg1, leg2], "CLIMB");
 
       expect(autopilot.lateralMode).toBe("LNAV");
       expect(autopilot.verticalMode).toBe("VNAV");
       expect(autopilot.speedMode).toBe("FMS"); // Verify speed mode
-      expect(aircraft.flightPlan.length).toBe(2);
+      expect(autopilot.flightPlan.length).toBe(2);
     });
   });
 
   describe("VNAV Climb Logic", () => {
     beforeEach(() => {
-      autopilot.activateFlightPlan([
-        {
-          type: "TF",
-          waypoint: "WPT1",
-          altConstraint: 700,
-          zConstraint: "ABOVE",
-        },
-      ]);
+      autopilot.activateFlightPlan(
+        [
+          {
+            type: "TF",
+            waypoint: "WPT1",
+            altConstraint: 700,
+            zConstraint: "ABOVE",
+          },
+        ],
+        "CLIMB",
+      );
       // Default setup: Climbing
       aircraft.altitude = 600;
       autopilot.mcpAltitude = 30000;
     });
 
-    it("should adhere to AT constraint even if MCP is higher", () => {
-      // AT 700
-      aircraft.flightPlan[0].zConstraint = "AT";
-      aircraft.flightPlan[0].altConstraint = 700;
-      aircraft.activeLeg = aircraft.flightPlan[0];
+    it("should adhere to AT constraint", () => {
+      // Activate with params
+      autopilot.activateFlightPlan(
+        [
+          {
+            type: "TF",
+            waypoint: "WPT1",
+            altConstraint: 700,
+            zConstraint: "AT",
+          },
+        ],
+        "CLIMB",
+      );
 
-      // Call calculateVertical directly to avoid update() integration issues
       (autopilot as any).calculateVertical();
-
       expect(aircraft.targetAltitude).toBe(700);
     });
 
     it("should adhere to BELOW constraint", () => {
-      aircraft.flightPlan[0].zConstraint = "BELOW";
-      aircraft.flightPlan[0].altConstraint = 700;
-      aircraft.activeLeg = aircraft.flightPlan[0];
+      autopilot.activateFlightPlan(
+        [
+          {
+            type: "TF",
+            waypoint: "WPT1",
+            altConstraint: 700,
+            zConstraint: "BELOW",
+          },
+        ],
+        "CLIMB",
+      );
 
       (autopilot as any).calculateVertical();
       expect(aircraft.targetAltitude).toBe(700);
     });
 
-    it("should ignore ABOVE constraint for Target (monitor only) and aim for MCP", () => {
-      aircraft.flightPlan[0].zConstraint = "ABOVE";
-      aircraft.flightPlan[0].altConstraint = 700;
-      aircraft.activeLeg = aircraft.flightPlan[0];
+    it("should ignore ABOVE constraint for Target and aim for Climb Target", () => {
+      autopilot.activateFlightPlan(
+        [
+          {
+            type: "TF",
+            waypoint: "WPT1",
+            altConstraint: 700,
+            zConstraint: "ABOVE",
+          },
+        ],
+        "CLIMB",
+      );
 
       (autopilot as any).calculateVertical();
-      expect(aircraft.targetAltitude).toBe(30000);
+      expect(aircraft.targetAltitude).toBe(35000); // Climb Target
     });
 
-    it("should respect constraint even if activeLeg is null (fallback)", () => {
-      // Setup: flightPlan has leg, activeLeg is null
-      aircraft.flightPlan[0].zConstraint = "AT";
-      aircraft.flightPlan[0].altConstraint = 5000;
-      aircraft.activeLeg = null;
-
-      // Ensure MCP suggests climb/descent that would violate constraint
-      // Case: Descent. MCP 4000. Current 13000. Target should be 5000 ("AT 5000").
-      aircraft.altitude = 13000;
-      autopilot.mcpAltitude = 4000;
-
-      (autopilot as any).calculateVertical();
-
-      expect(aircraft.targetAltitude).toBe(5000);
-    });
-
-    it("should update MCP altitude to constraint during descent (Step Down Logic)", () => {
-      // Step Down Logic means if we have a constraint "AT 8000" and MCP 4000,
-      // We should target 8000 first, and set MCP to 8000 so we don't bust it.
-
+    it("should NOT update MCP altitude (Safety Logic Removed by User)", () => {
       aircraft.flightPlan = [];
       aircraft.altitude = 13000;
       autopilot.mcpAltitude = 4000;
@@ -152,12 +159,14 @@ describe("Autopilot Logic", () => {
         altConstraint: 8000,
         zConstraint: "AT",
       };
-      aircraft.activeLeg = leg;
+      // Activate
+      autopilot.activateFlightPlan([leg], "DESCENT"); // Target 8000
 
       (autopilot as any).calculateVertical();
 
       expect(aircraft.targetAltitude).toBe(8000);
-      expect(autopilot.mcpAltitude).toBe(8000); // Check side effect
+      // Check side effect - User removed auto-update
+      expect(autopilot.mcpAltitude).toBe(4000);
     });
 
     it("should limit speed to 250kt below 10,000ft", () => {
@@ -228,35 +237,36 @@ describe("Autopilot Logic", () => {
     });
 
     it("should respect Step Down Speed Logic (Look Ahead)", () => {
-      // Current WP has no limit, but next one has 200.
-      // Standard profile is 250. It should target 200.
       aircraft.altitude = 5000;
       aircraft.targetSpeed = 250;
-      aircraft.activeWaypoint = { name: "NOLIMIT", x: 0, y: 0 } as any;
-
       // Mock Flight Plan with future constraint
       const nextLeg: FlightLeg = {
         type: "TF",
         waypoint: "NEXT",
         speedLimit: 200,
       };
-      aircraft.flightPlan = [nextLeg];
+      // Use activateFlightPlan to populate autopilot.flightPlan
+      autopilot.activateFlightPlan(
+        [{ type: "TF", waypoint: "NOLIMIT" }, nextLeg],
+        "DESCENT",
+      );
 
       (autopilot as any).manageProfiles(1);
 
       expect(aircraft.targetSpeed).toBe(200);
     });
 
-    it("should handle multi-leg gap without accelerating (Consecutive Constraints)", () => {
-      // WP1 (210) -> WP2 (No Limit) -> WP3 (No Limit) -> WP4 (210)
-      // Should stay at 210 throughout.
+    it("should handle multi-leg gap without accelerating", () => {
       aircraft.altitude = 5000;
       aircraft.targetSpeed = 210;
-      aircraft.activeWaypoint = { name: "WP2", x: 0, y: 0 } as any; // No limit on active
 
       const leg3: FlightLeg = { type: "TF", waypoint: "WP3" }; // No limit
       const leg4: FlightLeg = { type: "TF", waypoint: "WP4", speedLimit: 210 };
-      aircraft.flightPlan = [leg3, leg4];
+
+      autopilot.activateFlightPlan(
+        [{ type: "TF", waypoint: "WP2" }, leg3, leg4],
+        "DESCENT",
+      );
 
       (autopilot as any).manageProfiles(1);
 

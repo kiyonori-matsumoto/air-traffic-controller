@@ -183,7 +183,7 @@ export class TrafficManager {
     if (config.sid) {
       const sidLegs = this.airport.sids[config.sid];
       if (sidLegs) {
-        ac.autopilot.activateFlightPlan([...sidLegs], config.sid);
+        ac.autopilot.activateFlightPlan([...sidLegs], "CLIMB", config.sid);
         ac.autopilot.verticalMode = "VNAV_ALT"; // Default to VNAV_ALT for departures
 
         // For Departures with SID, set initial target altitude high to ensure climb through constraints
@@ -219,7 +219,7 @@ export class TrafficManager {
           zConstraint: this.airport.getWaypoint(wpName)?.zConstraint,
           speedLimit: this.airport.getWaypoint(wpName)?.speedLimit,
         }));
-        ac.autopilot.activateFlightPlan(plan, config.star);
+        ac.autopilot.activateFlightPlan(plan, "DESCENT", config.star);
       } else {
         console.warn(`STAR ${config.star} not found.`);
       }

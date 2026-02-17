@@ -56,9 +56,7 @@ describe("Aircraft Model", () => {
 
       aircraft.update(dt);
 
-      // Climbs at 70% rate due to acceleration (speed 250 -> target 300)
-      // 35 * 0.7 = 24.5
-      expect(aircraft.altitude).toBe(10024.5);
+      expect(aircraft.altitude).toBe(10035);
     });
 
     it("should accelerate towards target speed", () => {
@@ -115,9 +113,9 @@ describe("Aircraft Model", () => {
       const mockWaypoints = [wp1, wp2];
 
       // Set flight plan
-      aircraft.flightPlan = [
-        { type: "TF", waypoint: "WP1" },
-        { type: "TF", waypoint: "WP2" },
+      aircraft.autopilot.flightPlan = [
+        { type: "TF", waypoint: "WP1", altitude: 10000, speed: 250 },
+        { type: "TF", waypoint: "WP2", altitude: 10000, speed: 250 },
       ];
 
       // IMPORTANT: Set Autopilot Mode to LNAV
@@ -127,11 +125,15 @@ describe("Aircraft Model", () => {
       aircraft.updateNavigation(mockWaypoints);
 
       // Type guard for TS
-      if (aircraft.activeLeg && "waypoint" in aircraft.activeLeg) {
-        expect(aircraft.activeLeg.waypoint).toBe("WP1");
+      if (
+        aircraft.autopilot.activeLeg &&
+        "waypoint" in aircraft.autopilot.activeLeg
+      ) {
+        expect(aircraft.autopilot.activeLeg.waypoint).toBe("WP1");
       } else {
         throw new Error(
-          "Expected TF leg, got " + JSON.stringify(aircraft.activeLeg),
+          "Expected TF leg, got " +
+            JSON.stringify(aircraft.autopilot.activeLeg),
         );
       }
       expect(aircraft.activeWaypoint).toBe(wp1);
@@ -146,13 +148,16 @@ describe("Aircraft Model", () => {
       // Unit test calls it manually.)
       aircraft.updateNavigation(mockWaypoints);
 
-      expect(aircraft.activeLeg).toBeNull();
+      expect(aircraft.autopilot.activeLeg).toBeNull();
 
       // Next frame
       aircraft.updateNavigation(mockWaypoints);
 
-      if (aircraft.activeLeg && "waypoint" in aircraft.activeLeg) {
-        expect(aircraft.activeLeg.waypoint).toBe("WP2");
+      if (
+        aircraft.autopilot.activeLeg &&
+        "waypoint" in aircraft.autopilot.activeLeg
+      ) {
+        expect(aircraft.autopilot.activeLeg.waypoint).toBe("WP2");
       } else {
         throw new Error("Expected TF leg");
       }

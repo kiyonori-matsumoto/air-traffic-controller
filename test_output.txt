@@ -1,0 +1,356 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/home/kiyo/ghq/github.com/kiyonori-matsumoto/air-traffic-controller[39m
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mMode Transitions[2m > [22m[2mshould switch to HDG mode and clear LNAV
+[22m[39mDEBUG: activateFlightPlan called with plan length: 1
+DEBUG: backAndForward called with plan length: 1
+DEBUG: Propagating leg 0, plan length: 1
+[ { type: [32m'TF'[39m, waypoint: [32m'WPT1'[39m, speed: [33m300[39m, altitude: [33m35000[39m } ]
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mMode Transitions[2m > [22m[2mshould switch to LNAV/VNAV via activateFlightPlan
+[22m[39mDEBUG: activateFlightPlan called with plan length: 1
+DEBUG: backAndForward called with plan length: 1
+DEBUG: Propagating leg 0, plan length: 1
+[
+  {
+    type: [32m'TF'[39m,
+    waypoint: [32m'WPT1'[39m,
+    altConstraint: [33m5000[39m,
+    zConstraint: [32m'AT'[39m,
+    speed: [33m210[39m,
+    altitude: [33m5000[39m
+  }
+]
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mMode Transitions[2m > [22m[2mshould activate FMS mode when flight plan is activated
+[22m[39mDEBUG: activateFlightPlan called with plan length: 2
+DEBUG: backAndForward called with plan length: 2
+DEBUG: Propagating leg 1, plan length: 2
+DEBUG: Propagating leg 0, plan length: 2
+[
+  { type: [32m'TF'[39m, waypoint: [32m'WPT1'[39m, speed: [33m300[39m, altitude: [33m35000[39m },
+  { type: [32m'TF'[39m, waypoint: [32m'WPT2'[39m, speed: [33m300[39m, altitude: [33m35000[39m }
+]
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould adhere to AT constraint even if MCP is higher
+[22m[39mDEBUG: activateFlightPlan called with plan length: 1
+DEBUG: backAndForward called with plan length: 1
+DEBUG: Propagating leg 0, plan length: 1
+[
+  {
+    type: [32m'TF'[39m,
+    waypoint: [32m'WPT1'[39m,
+    altConstraint: [33m700[39m,
+    zConstraint: [32m'ABOVE'[39m,
+    speed: [33m300[39m,
+    altitude: [33m35000[39m
+  }
+]
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould adhere to BELOW constraint
+[22m[39mDEBUG: activateFlightPlan called with plan length: 1
+DEBUG: backAndForward called with plan length: 1
+DEBUG: Propagating leg 0, plan length: 1
+[
+  {
+    type: [32m'TF'[39m,
+    waypoint: [32m'WPT1'[39m,
+    altConstraint: [33m700[39m,
+    zConstraint: [32m'ABOVE'[39m,
+    speed: [33m300[39m,
+    altitude: [33m35000[39m
+  }
+]
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould ignore ABOVE constraint for Target (monitor only) and aim for MCP
+[22m[39mDEBUG: activateFlightPlan called with plan length: 1
+DEBUG: backAndForward called with plan length: 1
+DEBUG: Propagating leg 0, plan length: 1
+[
+  {
+    type: [32m'TF'[39m,
+    waypoint: [32m'WPT1'[39m,
+    altConstraint: [33m700[39m,
+    zConstraint: [32m'ABOVE'[39m,
+    speed: [33m300[39m,
+    altitude: [33m35000[39m
+  }
+]
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould respect constraint even if activeLeg is null (fallback)
+[22m[39mDEBUG: activateFlightPlan called with plan length: 1
+DEBUG: backAndForward called with plan length: 1
+DEBUG: Propagating leg 0, plan length: 1
+[
+  {
+    type: [32m'TF'[39m,
+    waypoint: [32m'WPT1'[39m,
+    altConstraint: [33m700[39m,
+    zConstraint: [32m'ABOVE'[39m,
+    speed: [33m300[39m,
+    altitude: [33m35000[39m
+  }
+]
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould update MCP altitude to constraint during descent (Step Down Logic)
+[22m[39mDEBUG: activateFlightPlan called with plan length: 1
+DEBUG: backAndForward called with plan length: 1
+DEBUG: Propagating leg 0, plan length: 1
+[
+  {
+    type: [32m'TF'[39m,
+    waypoint: [32m'WPT1'[39m,
+    altConstraint: [33m700[39m,
+    zConstraint: [32m'ABOVE'[39m,
+    speed: [33m300[39m,
+    altitude: [33m35000[39m
+  }
+]
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould limit speed to 250kt below 10,000ft
+[22m[39mDEBUG: activateFlightPlan called with plan length: 1
+DEBUG: backAndForward called with plan length: 1
+DEBUG: Propagating leg 0, plan length: 1
+[
+  {
+    type: [32m'TF'[39m,
+    waypoint: [32m'WPT1'[39m,
+    altConstraint: [33m700[39m,
+    zConstraint: [32m'ABOVE'[39m,
+    speed: [33m300[39m,
+    altitude: [33m35000[39m
+  }
+]
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould use Cruise Speed above 10,000ft
+[22m[39mDEBUG: activateFlightPlan called with plan length: 1
+DEBUG: backAndForward called with plan length: 1
+DEBUG: Propagating leg 0, plan length: 1
+[
+  {
+    type: [32m'TF'[39m,
+    waypoint: [32m'WPT1'[39m,
+    altConstraint: [33m700[39m,
+    zConstraint: [32m'ABOVE'[39m,
+    speed: [33m300[39m,
+    altitude: [33m35000[39m
+  }
+]
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould respect Waypoint Speed Limit in FMS mode
+[22m[39mDEBUG: activateFlightPlan called with plan length: 1
+DEBUG: backAndForward called with plan length: 1
+DEBUG: Propagating leg 0, plan length: 1
+[
+  {
+    type: [32m'TF'[39m,
+    waypoint: [32m'WPT1'[39m,
+    altConstraint: [33m700[39m,
+    zConstraint: [32m'ABOVE'[39m,
+    speed: [33m300[39m,
+    altitude: [33m35000[39m
+  }
+]
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mILS Approach Logic[2m > [22m[2mshould capture ILS when aligned and correct altitude
+[22m[39mTEST01 captured ILS 34R
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mILS Approach Logic[2m > [22m[2mshould switch Speed Mode to MANUAL on ILS capture to prevent FMS override
+[22m[39mTEST01 captured ILS 34R
+
+ [31m❯[39m src/tests/Autopilot.test.ts [2m([22m[2m19 tests[22m[2m | [22m[31m10 failed[39m[2m)[22m[32m 15[2mms[22m[39m
+[31m       [31m×[31m should switch to HDG mode and clear LNAV[39m[32m 5[2mms[22m[39m
+[31m       [31m×[31m should switch to LNAV/VNAV via activateFlightPlan[39m[32m 2[2mms[22m[39m
+[31m       [31m×[31m should activate FMS mode when flight plan is activated[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should adhere to AT constraint even if MCP is higher[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should adhere to BELOW constraint[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should ignore ABOVE constraint for Target (monitor only) and aim for MCP[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should respect constraint even if activeLeg is null (fallback)[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should update MCP altitude to constraint during descent (Step Down Logic)[39m[32m 1[2mms[22m[39m
+       [32m✓[39m should limit speed to 250kt below 10,000ft[32m 1[2mms[22m[39m
+       [32m✓[39m should use Cruise Speed above 10,000ft[32m 0[2mms[22m[39m
+       [32m✓[39m should respect Waypoint Speed Limit in FMS mode[32m 0[2mms[22m[39m
+       [32m✓[39m should target 250kt when below 10000ft[32m 0[2mms[22m[39m
+       [32m✓[39m should target 300kt when above 10000ft[32m 0[2mms[22m[39m
+[31m       [31m×[31m should respect Step Down Speed Logic (Look Ahead)[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should handle multi-leg gap without accelerating (Consecutive Constraints)[39m[32m 0[2mms[22m[39m
+       [32m✓[39m should not exceed waypoint speed limit[32m 0[2mms[22m[39m
+       [32m✓[39m should capture ILS when aligned and correct altitude[32m 0[2mms[22m[39m
+       [32m✓[39m should NOT capture ILS if not flying[32m 0[2mms[22m[39m
+       [32m✓[39m should switch Speed Mode to MANUAL on ILS capture to prevent FMS override[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 10 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mMode Transitions[2m > [22mshould switch to HDG mode and clear LNAV
+[31m[1mAssertionError[22m: expected +0 to be 1 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m src/tests/Autopilot.test.ts:[2m39:42[22m[39m
+    [90m 37| [39m      autopilot.activateFlightPlan([{ type: "TF", waypoint: "WPT1" }],…
+    [90m 38| [39m      [34mexpect[39m(autopilot[33m.[39mlateralMode)[33m.[39m[34mtoBe[39m([32m"LNAV"[39m)[33m;[39m
+    [90m 39| [39m      [34mexpect[39m(aircraft[33m.[39mflightPlan[33m.[39mlength)[33m.[39m[34mtoBe[39m([34m1[39m)[33m;[39m
+    [90m   | [39m                                         [31m^[39m
+    [90m 40| [39m
+    [90m 41| [39m      autopilot[33m.[39m[34msetHeading[39m([34m180[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mMode Transitions[2m > [22mshould switch to LNAV/VNAV via activateFlightPlan
+[31m[1mAssertionError[22m: expected undefined to deeply equal { type: 'TF', waypoint: 'WPT1', …(2) }[39m
+
+[32m- Expected:[39m 
+{
+  "altConstraint": 5000,
+  "type": "TF",
+  "waypoint": "WPT1",
+  "zConstraint": "AT",
+}
+
+[31m+ Received:[39m 
+undefined
+
+[36m [2m❯[22m src/tests/Autopilot.test.ts:[2m63:38[22m[39m
+    [90m 61| [39m      [34mexpect[39m(autopilot[33m.[39mlateralMode)[33m.[39m[34mtoBe[39m([32m"LNAV"[39m)[33m;[39m
+    [90m 62| [39m      [34mexpect[39m(autopilot[33m.[39mverticalMode)[33m.[39m[34mtoBe[39m([32m"VNAV"[39m)[33m;[39m
+    [90m 63| [39m      [34mexpect[39m(aircraft[33m.[39mflightPlan[[34m0[39m])[33m.[39m[34mtoEqual[39m(leg)[33m;[39m
+    [90m   | [39m                                     [31m^[39m
+    [90m 64| [39m      [34mexpect[39m(aircraft[33m.[39mtargetAltitude)[33m.[39m[34mtoBe[39m([34m5000[39m)[33m;[39m
+    [90m 65| [39m    })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mMode Transitions[2m > [22mshould activate FMS mode when flight plan is activated
+[31m[1mAssertionError[22m: expected +0 to be 2 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 2[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m src/tests/Autopilot.test.ts:[2m76:42[22m[39m
+    [90m 74| [39m      [34mexpect[39m(autopilot[33m.[39mverticalMode)[33m.[39m[34mtoBe[39m([32m"VNAV"[39m)[33m;[39m
+    [90m 75| [39m      [34mexpect[39m(autopilot[33m.[39mspeedMode)[33m.[39m[34mtoBe[39m([32m"FMS"[39m)[33m;[39m [90m// Verify speed mode[39m
+    [90m 76| [39m      [34mexpect[39m(aircraft[33m.[39mflightPlan[33m.[39mlength)[33m.[39m[34mtoBe[39m([34m2[39m)[33m;[39m
+    [90m   | [39m                                         [31m^[39m
+    [90m 77| [39m    })[33m;[39m
+    [90m 78| [39m  })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mVNAV Climb Logic[2m > [22mshould adhere to AT constraint even if MCP is higher
+[31m[1mTypeError[22m: Cannot set properties of undefined (setting 'zConstraint')[39m
+[36m [2m❯[22m src/tests/Autopilot.test.ts:[2m100:30[22m[39m
+    [90m 98| [39m    [34mit[39m([32m"should adhere to AT constraint even if MCP is higher"[39m[33m,[39m () [33m=>[39m {
+    [90m 99| [39m      [90m// AT 700[39m
+    [90m100| [39m      aircraft[33m.[39mflightPlan[[34m0[39m][33m.[39mzConstraint [33m=[39m [32m"AT"[39m[33m;[39m
+    [90m   | [39m                             [31m^[39m
+    [90m101| [39m      aircraft[33m.[39mflightPlan[[34m0[39m][33m.[39maltConstraint [33m=[39m [34m700[39m[33m;[39m
+    [90m102| [39m      (autopilot [35mas[39m any)[33m.[39mactiveLeg [33m=[39m aircraft[33m.[39mflightPlan[[34m0[39m][33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mVNAV Climb Logic[2m > [22mshould adhere to BELOW constraint
+[31m[1mTypeError[22m: Cannot set properties of undefined (setting 'zConstraint')[39m
+[36m [2m❯[22m src/tests/Autopilot.test.ts:[2m111:30[22m[39m
+    [90m109| [39m
+    [90m110| [39m    [34mit[39m([32m"should adhere to BELOW constraint"[39m[33m,[39m () [33m=>[39m {
+    [90m111| [39m      aircraft[33m.[39mflightPlan[[34m0[39m][33m.[39mzConstraint [33m=[39m [32m"BELOW"[39m[33m;[39m
+    [90m   | [39m                             [31m^[39m
+    [90m112| [39m      aircraft[33m.[39mflightPlan[[34m0[39m][33m.[39maltConstraint [33m=[39m [34m700[39m[33m;[39m
+    [90m113| [39m      (autopilot [35mas[39m any)[33m.[39mactiveLeg [33m=[39m aircraft[33m.[39mflightPlan[[34m0[39m][33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mVNAV Climb Logic[2m > [22mshould ignore ABOVE constraint for Target (monitor only) and aim for MCP
+[31m[1mTypeError[22m: Cannot set properties of undefined (setting 'zConstraint')[39m
+[36m [2m❯[22m src/tests/Autopilot.test.ts:[2m120:30[22m[39m
+    [90m118| [39m
+    [90m119| [39m    it("should ignore ABOVE constraint for Target (monitor only) and a…
+    [90m120| [39m      aircraft[33m.[39mflightPlan[[34m0[39m][33m.[39mzConstraint [33m=[39m [32m"ABOVE"[39m[33m;[39m
+    [90m   | [39m                             [31m^[39m
+    [90m121| [39m      aircraft[33m.[39mflightPlan[[34m0[39m][33m.[39maltConstraint [33m=[39m [34m700[39m[33m;[39m
+    [90m122| [39m      (autopilot [35mas[39m any)[33m.[39mactiveLeg [33m=[39m aircraft[33m.[39mflightPlan[[34m0[39m][33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mVNAV Climb Logic[2m > [22mshould respect constraint even if activeLeg is null (fallback)
+[31m[1mTypeError[22m: Cannot set properties of undefined (setting 'zConstraint')[39m
+[36m [2m❯[22m src/tests/Autopilot.test.ts:[2m130:30[22m[39m
+    [90m128| [39m    it("should respect constraint even if activeLeg is null (fallback)…
+    [90m129| [39m      [90m// Setup: flightPlan has leg, activeLeg is null[39m
+    [90m130| [39m      aircraft[33m.[39mflightPlan[[34m0[39m][33m.[39mzConstraint [33m=[39m [32m"AT"[39m[33m;[39m
+    [90m   | [39m                             [31m^[39m
+    [90m131| [39m      aircraft[33m.[39mflightPlan[[34m0[39m][33m.[39maltConstraint [33m=[39m [34m5000[39m[33m;[39m
+    [90m132| [39m      (autopilot [35mas[39m any)[33m.[39mactiveLeg [33m=[39m [35mnull[39m[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mVNAV Climb Logic[2m > [22mshould update MCP altitude to constraint during descent (Step Down Logic)
+[31m[1mAssertionError[22m: expected 4000 to be 8000 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 8000[39m
+[31m+ 4000[39m
+
+[36m [2m❯[22m src/tests/Autopilot.test.ts:[2m162:39[22m[39m
+    [90m160| [39m      (autopilot [35mas[39m any)[33m.[39m[34mcalculateVertical[39m()[33m;[39m
+    [90m161| [39m
+    [90m162| [39m      [34mexpect[39m(aircraft[33m.[39mtargetAltitude)[33m.[39m[34mtoBe[39m([34m8000[39m)[33m;[39m
+    [90m   | [39m                                      [31m^[39m
+    [90m163| [39m      [34mexpect[39m(autopilot[33m.[39mmcpAltitude)[33m.[39m[34mtoBe[39m([34m8000[39m)[33m;[39m [90m// Check side effect[39m
+    [90m164| [39m    })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mSpeed Scheduling[2m > [22mshould respect Step Down Speed Logic (Look Ahead)
+[31m[1mAssertionError[22m: expected 250 to be 200 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 250[39m
+
+[36m [2m❯[22m src/tests/Autopilot.test.ts:[2m250:36[22m[39m
+    [90m248| [39m      (autopilot [35mas[39m any)[33m.[39m[34mmanageProfiles[39m([34m1[39m)[33m;[39m
+    [90m249| [39m
+    [90m250| [39m      [34mexpect[39m(aircraft[33m.[39mtargetSpeed)[33m.[39m[34mtoBe[39m([34m200[39m)[33m;[39m
+    [90m   | [39m                                   [31m^[39m
+    [90m251| [39m    })[33m;[39m
+    [90m252| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mSpeed Scheduling[2m > [22mshould handle multi-leg gap without accelerating (Consecutive Constraints)
+[31m[1mAssertionError[22m: expected 250 to be 210 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 210[39m
+[31m+ 250[39m
+
+[36m [2m❯[22m src/tests/Autopilot.test.ts:[2m266:36[22m[39m
+    [90m264| [39m      (autopilot [35mas[39m any)[33m.[39m[34mmanageProfiles[39m([34m1[39m)[33m;[39m
+    [90m265| [39m
+    [90m266| [39m      [34mexpect[39m(aircraft[33m.[39mtargetSpeed)[33m.[39m[34mtoBe[39m([34m210[39m)[33m;[39m
+    [90m   | [39m                                   [31m^[39m
+    [90m267| [39m    })[33m;[39m
+    [90m268| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/10]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m10 failed[39m[22m[2m | [22m[1m[32m9 passed[39m[22m[90m (19)[39m
+[2m   Start at [22m 20:58:06
+[2m   Duration [22m 147ms[2m (transform 50ms, setup 0ms, import 63ms, tests 15ms, environment 0ms)[22m
+
