@@ -161,6 +161,7 @@ export class TrafficManager {
 
     const ac = new Aircraft(
       config.callsign,
+      config.model, // Pass model
       config.x,
       config.y,
       config.speed,

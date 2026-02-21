@@ -1,5 +1,6 @@
 import { IAircraft } from "./IAircraft";
 import { FlightLeg, Waypoint, Runway } from "./Airport";
+import { PIDController } from "../utils/PIDController";
 
 export type LateralMode = "HDG" | "LNAV" | "LOC" | "ROLLOUT";
 export type VerticalMode =
@@ -60,6 +61,14 @@ export class Autopilot {
   public flightPlan: FlightLegTarget[] = [];
   public activeLeg: FlightLegTarget | null = null;
 
+  // PID Controllers
+  // Kp=1.1, Ki=0.005, Kd=2.5 (Balanced tuning)
+  private bankPID = new PIDController(2.5, 0.005, 2.5, -25, 25);
+  // vsPID translates altitude error (ft) to target VS (fpm).
+  // Kp=10 means for every 100ft error, we command 1000fpm.
+  // We clamp output to reasonable values based on aircraft performance or mode.
+  private vsPID = new PIDController(10.0, 0.05, 5.0, -3000, 4000);
+
   constructor(private aircraft: IAircraft) {
     this.mcpHeading = aircraft.heading;
     this.mcpAltitude = aircraft.altitude;
@@ -81,15 +90,12 @@ export class Autopilot {
   private prevWaypointName: string | null = null;
 
   public update(dt: number) {
-    // Initialize prev values on first run or if they differ significantly (hack for constructor sync)
-    // Actually, distinct initialization is better. Check constructor.
-
     // 1. Update Modes (Transition Logic)
     this.updateModes();
 
     // 2. Calculate Targets based on Modes
-    this.calculateLateral();
-    this.calculateVertical();
+    this.calculateLateral(dt);
+    this.calculateVertical(dt);
     this.calculateSpeed();
 
     // 3. Manage Profiles (VNAV/FMS Limits)
@@ -174,34 +180,48 @@ export class Autopilot {
     }
   }
 
-  private calculateLateral() {
+  private calculateLateral(dt: number) {
+    let targetHeading = this.mcpHeading;
+
     if (this.lateralMode === "HDG") {
-      this.aircraft.targetHeading = this.mcpHeading;
+      // Manual Heading
+      targetHeading = this.mcpHeading;
+      this.aircraft.targetHeading = targetHeading; // Keep for legacy/debug
     } else if (this.lateralMode === "LNAV") {
-      // Logic handled by Aircraft.updateNavigation() for now?
-      // Or move it here?
-      // Plan: Let Aircraft.updateNavigation set targetHeading, but Autopilot
-      // orchestrates it.
-      // If LNAV, we EXPECT targetHeading to be updated by navigation logic.
-      // To strictly separate: Navigation logic should calculate a "desired track"
-      // and Autopilot follows it.
-      // For Phase 1: Keep existing updateNavigation call in Aircraft,
-      // but ensure Autopilot doesn't overwrite it if LNAV.
+      // LNAV Logic: targetHeading comes from Navigation (Aircraft.updateNavigation sets Aircraft.targetHeading)
+      // OR we can calculate it here if we want Autopilot to own it completely.
+      // Currently Aircraft.updateNavigation calls manageLNAV which updates `activeLeg`.
+      // BUT processLeg in Autopilot sets `aircraft.targetHeading`.
+      // So aircraft.targetHeading IS the LNAV target.
+      targetHeading = this.aircraft.targetHeading;
+    } else if (this.lateralMode === "LOC" || this.lateralMode === "ROLLOUT") {
+      // LOC Logic sets aircraft.targetHeading in manageApproach
+      targetHeading = this.aircraft.targetHeading;
     }
+
+    // PID Control Loop
+    // Calculate Error (Shortest turn)
+    let error = targetHeading - this.aircraft.heading;
+    if (error > 180) error -= 360;
+    if (error < -180) error += 360;
+
+    // Determine Bank Command
+    // If error is large, we saturate to max bank.
+    // If error is small, we roll level.
+    const bankCmd = this.bankPID.update(error, dt);
+
+    // Set Command
+    this.aircraft.commandBank = bankCmd;
+
+    // Safety Fallback: If bankPID output is weird, clamping happens in PID.
   }
 
   public manageLNAV(airportWaypoints: Waypoint[]) {
-    // If not LNAV, do nothing (Guard)
     if (this.lateralMode !== "LNAV") return;
-
-    // Check Flight Plan
     if (this.flightPlan.length === 0 && !this.activeLeg) return;
-
-    // Pop next leg if needed
     if (!this.activeLeg && this.flightPlan.length > 0) {
       this.activeLeg = this.flightPlan.shift()!;
     }
-
     if (this.activeLeg) {
       this.processLeg(this.activeLeg, airportWaypoints);
     }
@@ -212,20 +232,8 @@ export class Autopilot {
       airportWaypoints.find((w) => w.name === name);
 
     if (leg.type === "VA") {
-      // Vector to Altitude
       this.aircraft.targetHeading = leg.heading;
-
-      // Altitude Constraint Logic (VNAV mostly, but VA combines them)
-      // Since VA is Lateral+Vertical, we handle heading here.
-      // Vertical logic should strictly be in calculateVertical/VNAV?
-      // But VA *terminates* based on vertical condition.
-      // We must check termination here.
-
-      // Pass constraints to VNAV logic if we split them?
-      // For Phase 2, let's keep it integrated here for VA Leg logic.
-
       if (this.aircraft.altitude >= leg.altConstraint) {
-        // Terminate Leg
         this.activeLeg = null;
         this.aircraft.activeWaypoint = null;
       }
@@ -235,7 +243,7 @@ export class Autopilot {
         if (wp) {
           this.aircraft.activeWaypoint = wp;
         } else {
-          this.activeLeg = null; // Skip invalid
+          this.activeLeg = null;
           return;
         }
       }
@@ -244,14 +252,12 @@ export class Autopilot {
       const dy = this.aircraft.activeWaypoint.y - this.aircraft.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // Heading Calc
       const mathRad = Math.atan2(dy, dx);
       const mathDeg = (mathRad * 180) / Math.PI;
       let targetH = 90 - mathDeg;
       if (targetH < 0) targetH += 360;
       this.aircraft.targetHeading = targetH;
 
-      // Reached?
       if (dist < 1.0) {
         this.activeLeg = null;
         this.aircraft.activeWaypoint = null;
@@ -259,234 +265,98 @@ export class Autopilot {
     }
   }
 
-  private calculateVertical() {
-    // If GS or FLARE, do not use MCP or VNAV logic.
+  private calculateVertical(dt: number) {
+    let targetAlt = this.mcpAltitude;
+
     if (this.verticalMode === "GS" || this.verticalMode === "FLARE") {
       if (this.capturedRunway && this.aircraft.state === "LANDING") {
         const rwy = this.capturedRunway;
         const dx = this.aircraft.x - rwy.x;
         const dy = this.aircraft.y - rwy.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
+        targetAlt = Math.floor(dist * 318.44);
 
-        // 3-degree glide slope: ~318 ft per NM
-        // (tan(3deg) * 6076ft/NM = 0.0524 * 6076 = 318.4)
-        const idealAlt = Math.floor(dist * 318.44);
-
-        if (idealAlt < this.aircraft.altitude) {
-          this.aircraft.targetAltitude = idealAlt;
-        } else {
-          // If we are below GS, maintain current altitude until intercept?
-          // Standard behavior: Maintain Level until GS intercept from below.
-          // Current logic: target = ideal. If ideal > current, we climb?
-          // No, we should not climb to catch GS from below usually?
-          // But if we are *on* GS (captured), we follow it.
-          // Let's stick to simple logic: Target = ideal.
-          // But wait, if ideal > current, that means we are BELOW glide slope.
-          // We should MAINTAIN current altitude (or MCP) to intercept.
-
-          // However, if we already captured, we might have dipped below?
-          // Let's just track the ideal path for now.
-
-          // Original logic was:
-          // if (idealAlt > this.aircraft.altitude) target = current (don't climb)
-          // else target = ideal (descend)
-
-          if (idealAlt > this.aircraft.altitude) {
-            this.aircraft.targetAltitude = this.aircraft.altitude;
-          } else {
-            this.aircraft.targetAltitude = idealAlt;
-          }
+        // Glide slope capture logic: don't climb to catch it from below
+        if (targetAlt > this.aircraft.altitude) {
+          targetAlt = this.aircraft.altitude;
         }
       }
-      return;
+    } else if (
+      this.verticalMode === "VNAV" ||
+      this.verticalMode === "VNAV_ALT"
+    ) {
+      targetAlt = this.activeLeg?.altitude ?? this.mcpAltitude;
     }
 
-    // Default: Pass MCP to Target
-    let target = this.mcpAltitude;
+    this.aircraft.targetAltitude = targetAlt;
 
-    // VNAV Logic
-    // VNAV Logic
-    if (this.verticalMode === "VNAV" || this.verticalMode === "VNAV_ALT") {
-      target = this.activeLeg?.altitude || target;
+    // PID Control for Vertical Speed
+    const altError = targetAlt - this.aircraft.altitude;
 
-      // Safety Bounding (Climb Cap / Descent Floor)
-      // // CLIMB Check (Target > Current)
-      // if (target > this.aircraft.altitude + 100) {
-      //   if (this.mcpAltitude < target) {
-      //     target = this.mcpAltitude;
-      //     console.log(
-      //       `${this.aircraft.callsign} VNAV: Clamped climb target to MCP ${target}`,
-      //     );
-      //   }
-      // }
-      // // DESCENT Check (Target < Current)
-      // if (target < this.aircraft.altitude - 100) {
-      //   if (this.mcpAltitude > target) {
-      //     // Usually for Descent, MCP is a floor.
-      //     target = this.mcpAltitude;
-      //     console.log(
-      //       `${this.aircraft.callsign} VNAV: Clamped descent target to MCP ${target}`,
-      //     );
-      //   }
-      // }
+    // Command VS based on altitude error
+    let vsCmd = this.vsPID.update(altError, dt);
 
-      // // 3. Auto-update MCP if VNAV commands a constrained altitude
-      // if (target !== this.mcpAltitude) {
-      //   console.log(
-      //     `${this.aircraft.callsign} VNAV: Auto-updating MCP from ${this.mcpAltitude} to ${target}`,
-      //   );
-      //   this.mcpAltitude = target;
-      // }
-
-      this.aircraft.targetAltitude = target;
-    } else {
-      // ALT / FLCH / Manual Modes
-      this.aircraft.targetAltitude = target;
-    }
-  }
-
-  /**
-   * VNAV Constraint Solver (Look Ahead)
-   * Scans flight plan for the next relevant altitude constraint.
-   */
-  // private solveVerticalConstraint(): number {
-  //   let target = this.mcpAltitude;
-  //   const currentAlt = this.aircraft.altitude;
-  //   const mcpAlt = this.mcpAltitude;
-
-  //   // Check Active Leg First
-  //   if (this.aircraft.activeLeg && this.aircraft.activeLeg.altConstraint) {
-  //     if (
-  //       this.checkConstraintRelevance(
-  //         this.aircraft.activeLeg,
-  //         currentAlt,
-  //         mcpAlt,
-  //       )
-  //     ) {
-  //       return this.aircraft.activeLeg.altConstraint;
-  //     }
-  //   }
-
-  //   // Look Ahead
-  //   for (const leg of this.flightPlan) {
-  //     if (leg.altConstraint) {
-  //       if (this.checkConstraintRelevance(leg, currentAlt, mcpAlt)) {
-  //         return leg.altConstraint;
-  //       }
-  //       // If constraint found but not relevant (e.g. satisfied ABOVE),
-  //       // we might need to look further?
-  //       // E.g. [ABOVE 6000] -> [AT 8000].
-  //       // At 2000, MCP 10000.
-  //       // ABOVE 6000: Relevant? (2000 < 6000). Yes, Floor.
-  //       // But we want to climb THROUGH it.
-  //       // If we allow "passing through" satisfy-able constraints, we continue.
-
-  //       // If we are CLIMBING (MCP > current), and Constraint is ABOVE specific.
-  //       // We can ignore it as a "stopping target" if MCP > Constraint?
-
-  //       const type = leg.zConstraint || "AT";
-  //       // Scan past satisfied constraints
-  //       if (type === "ABOVE" && mcpAlt > leg.altConstraint) continue;
-  //       if (
-  //         type === "BELOW" &&
-  //         mcpAlt < leg.altConstraint &&
-  //         currentAlt < leg.altConstraint
-  //       )
-  //         continue;
-
-  //       // If AT, it blocks.
-  //       if (type === "AT") return leg.altConstraint;
-  //     }
-  //   }
-
-  //   return target;
-  // }
-
-  private checkConstraintRelevance(
-    leg: FlightLeg,
-    currentAlt: number,
-    mcpAlt: number,
-  ): boolean {
-    const type = leg.zConstraint || "AT";
-    const constraint = leg.altConstraint;
-
-    if (constraint === undefined) return false;
-
-    // 1. AT constraints are always binding targets
-    if (type === "AT") return true;
-
-    // 2. BELOW constraints
-    if (type === "BELOW") {
-      // Relevant if we are ABOVE them (Must Descend)
-      if (currentAlt > constraint + 100) return true;
-      // Relevant if we are CLIMBING towards them (Must Cap)
-      if (mcpAlt > constraint && currentAlt < constraint) return true;
-    }
-
-    // 3. ABOVE constraints
-    if (type === "ABOVE") {
-      // Relevant if we are BELOW them (Must Climb)
-      if (currentAlt < constraint - 100) {
-        // Only stop at it if MCP is NOT higher?
-        if (mcpAlt > constraint) return false;
-        return true;
+    // FLCH (Flight Level Change) logic override:
+    // If climb, use full performance climb. If descent, use target VS.
+    if (this.verticalMode === "FLCH" || this.verticalMode === "VNAV") {
+      if (altError > 500) {
+        // Command a very high VS, let Aircraft performance clamping handle it
+        vsCmd = 6000;
       }
     }
 
-    return false;
+    // Set Command
+    this.aircraft.commandVs = vsCmd;
   }
-  // } - Removed extra brace
 
   private manageProfiles(_dt: number) {
     // If Speed Mode is MANUAL, do not override
     if (this.speedMode !== "FMS") return;
 
-    let limitSpeed = 999;
+    let targetCas = 250;
     const alt = this.aircraft.altitude;
+    const perf = (this.aircraft as any).performance; // Cast to access performance if not in IAircraft
 
-    // 1. Altitude Based Schedule (Cruise vs Terminal)
-    if (alt > 10000) {
-      limitSpeed = this.aircraft.cruiseSpeed; // Use Aircraft specific cruise speed
+    // 1. Altitude Based Schedule (Mach vs CAS)
+    // Transition usually around FL260-FL290
+    if (alt > 26000) {
+      // High altitude: Follow Mach profile (e.g. M0.78)
+      const targetMach = 0.78;
+      // Convert target Mach to TAS then CAS (Autopilot usually commands CAS/Mach)
+      // For simplicity in this engine, targetSpeed is TAS for now.
+      // But we should command a speed that results in the desired Mach.
+
+      const speedOfSound = perf.getSpeedOfSound(alt);
+      const targetTAS = (targetMach * speedOfSound) / 0.514444; // Knots
+      targetCas = targetTAS; // Set as target TAS for now (as Aircraft uses TAS)
+
+      // Polish: Aircraft.ts should probably be updated to use CAS/TAS properly.
+      // For now, treat targetSpeed as commanded TAS.
+    } else if (alt > 10000) {
+      targetCas = this.aircraft.cruiseSpeed;
     } else {
-      limitSpeed = 250; // Below 10k
+      targetCas = 250; // Below 10k
     }
 
     // 2. Climb Specific (Low Altitude Protection)
-    // Only apply strict slow speed if we are actually in takeoff/initial climb phase
     const isClimbing = this.mcpAltitude > alt + 100;
     if (isClimbing && alt < 3000) {
-      limitSpeed = 160;
+      targetCas = 160;
     }
 
-    // 3. Step Down Logic (Look Ahead)
-    // Find limits in Active Leg OR Future Legs
-    // let constraintFound = false; // Unused
-
-    // Check Active Waypoint first
+    // 3. Waypoint Restrictions
     if (this.aircraft.activeWaypoint?.speedLimit) {
-      limitSpeed = Math.min(
-        limitSpeed,
-        this.aircraft.activeWaypoint.speedLimit,
-      );
-      // constraintFound = true;
+      targetCas = Math.min(targetCas, this.aircraft.activeWaypoint.speedLimit);
     }
 
-    // Iterate forward to find the *next* restriction if not found yet (or even if found, to be safe against lower future constraints?)
-    // Actually, if active has 220, and next has 180, we should probably target 180 immediately?
-    // "Step Down" usually implies meeting the next constraint.
-    // Let's check future legs too.
     for (const leg of this.flightPlan) {
       if (leg.speedLimit) {
-        limitSpeed = Math.min(limitSpeed, leg.speedLimit);
-        // constraintFound = true;
-        // As soon as we find *a* constraint, that is the "next" one we must adhere to.
-        // We break because subsequent constraints (e.g. 200 after 210) don't matter until we pass the 210 one.
+        targetCas = Math.min(targetCas, leg.speedLimit);
         break;
       }
     }
 
-    // Apply
-    this.aircraft.targetSpeed = limitSpeed;
+    this.aircraft.targetSpeed = targetCas;
   }
 
   private calculateSpeed() {
@@ -495,12 +365,10 @@ export class Autopilot {
     }
   }
 
-  // Captured Runway for Approach Tracking
   private capturedRunway: Runway | null = null;
 
   public manageApproach(runways: Runway[]): boolean {
     if (this.aircraft.state === "FLYING") {
-      // ILS Capture Logic
       for (const rwy of runways) {
         if (
           rwy.isAligned(
@@ -515,16 +383,14 @@ export class Autopilot {
           this.aircraft.targetSpeed = 140;
           this.lateralMode = "LOC";
           this.verticalMode = "GS";
-          this.speedMode = "MANUAL"; // Disable FMS override
+          this.speedMode = "MANUAL";
           this.capturedRunway = rwy;
           return true;
         }
       }
     } else if (this.aircraft.state === "LANDING") {
-      // LOC/GS Tracking
       const rwy = this.capturedRunway;
       if (!rwy) {
-        // Should not happen if state is LANDING, but safe-guard
         this.aircraft.state = "FLYING";
         return true;
       }
@@ -533,18 +399,11 @@ export class Autopilot {
       const dy = this.aircraft.y - rwy.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // 1. Glide Slope (GS)
-      // Height calculation moved to calculateVertical()
-      // We just need to ensure verticalMode is GS.
-
-      // 2. Localizer (LOC)
       const rwyRad = (90 - rwy.heading) * (Math.PI / 180);
       const lateralOffset = -dx * Math.sin(rwyRad) + dy * Math.cos(rwyRad);
-
       const correction = lateralOffset * 40;
       this.aircraft.targetHeading = (rwy.heading + correction + 360) % 360;
 
-      // Flare / Touchdown
       if (dist < 0.3 && this.aircraft.altitude < 150) {
         console.log(`${this.aircraft.callsign} landed!`);
         this.aircraft.state = "LANDED";
@@ -553,7 +412,6 @@ export class Autopilot {
       }
     }
 
-    // Out of bounds check (legacy)
     const distFromCenter = Math.sqrt(
       this.aircraft.x * this.aircraft.x + this.aircraft.y * this.aircraft.y,
     );
@@ -564,13 +422,9 @@ export class Autopilot {
     return true;
   }
 
-  // --- External Inputs ---
-
   public setHeading(hdg: number) {
     this.mcpHeading = hdg;
     this.lateralMode = "HDG";
-
-    // Clear LNAV state
     this.flightPlan = [];
     this.activeLeg = null;
     this.aircraft.activeWaypoint = null;
@@ -598,13 +452,11 @@ export class Autopilot {
     }
     this.lateralMode = "LNAV";
     this.verticalMode = "VNAV";
-    this.speedMode = "FMS"; // Added
+    this.speedMode = "FMS";
   }
 
   public setAltitude(alt: number) {
     this.mcpAltitude = alt;
-    // If diff is large, maybe switch to FLCH?
-    // For now, keep simple.
   }
 
   public setSpeed(spd: number) {
@@ -618,7 +470,6 @@ export class Autopilot {
     targetAlt: number,
   ): FlightLegTarget[] {
     const targets: FlightLegTarget[] = [];
-
     const calcConstraint = (
       current: number,
       target: number | undefined,
@@ -641,13 +492,10 @@ export class Autopilot {
     let ca = targetAlt;
 
     for (let i = plan.length - 1; i >= 0; i--) {
-      console.log(`DEBUG: Propagating leg ${i}, plan length: ${plan.length}`);
+      // console.log(`DEBUG: Propagating leg ${i}, plan length: ${plan.length}`);
       const leg = plan[i];
-
-      // Update for previous leg (and THIS leg)
       cs = calcConstraint(cs, leg.speedLimit, "BELOW");
       ca = calcConstraint(ca, leg.altConstraint, leg.zConstraint);
-
       const target: FlightLegTarget = {
         ...leg,
         speed: cs,
@@ -655,7 +503,6 @@ export class Autopilot {
       };
       targets.unshift(target);
     }
-
     return targets;
   }
 }

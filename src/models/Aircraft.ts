@@ -1,5 +1,6 @@
 import { Runway, Waypoint, FlightLeg } from "./Airport";
 import { Autopilot } from "./Autopilot";
+import { AircraftPerformance } from "./AircraftPerformance";
 
 export class Aircraft {
   // 単位: NM(海里), ft(フィート), kt(ノット), deg(度)
@@ -44,10 +45,19 @@ export class Aircraft {
   origin: string;
   destination: string;
 
+  // Autopilot Commands
+  commandBank?: number;
+  commandVs?: number;
+
   public autopilot: Autopilot;
+  performance: AircraftPerformance;
+  mass: number; // kg
+  bankAngle: number = 0; // degrees, positive = right bank
+  maxBankAngle: number = 25; // degrees
 
   constructor(
     callsign: string,
+    model: string, // Added model
     x: number,
     y: number,
     speed: number,
@@ -69,9 +79,17 @@ export class Aircraft {
     this.targetHeading = heading;
     this.targetAltitude = altitude;
     this.targetSpeed = speed;
-    this.turnRate = 3; // 旋回率(deg/s)
-    this.climbRate = 35; // ~2100ft/min (Reduced from 50)
-    this.acceleration = 1.0; // ~1kt/s (Reduced/Maintained)
+    this.turnRate = 3; // 旋回率(deg/s) - Now calculated dynamically
+    this.climbRate = 0; // Now calculated dynamically
+    this.acceleration = 1.0;
+
+    // Initialize Performance Model
+    this.performance = new AircraftPerformance(model);
+
+    // Initialize Mass (Simplified: Takeoff Weight - some fuel)
+    // Randomize slightly between OEW and MTOW
+    const weights = this.performance.getData().weights;
+    this.mass = weights.oew + 0.7 * (weights.mtow - weights.oew);
 
     this.autopilot = new Autopilot(this);
 
@@ -133,77 +151,162 @@ export class Aircraft {
 
   // 毎フレームの計算 (dtは秒単位)
   update(dt: number) {
-    // Autopilot Update (Calculates Targets, Profiles, LNAV)
-    // Note: LNAV logic involves updateNavigation() called externally or via manageLNAV here?
-    // Current design: manageLNAV is called by updateNavigation().
-    // autopliot.update() handles Modes/Profiles.
+    // Autopilot Update
     this.autopilot.update(dt);
 
-    // 1. 移動・旋回ロジック
+    // --- PHYSICS BASED MOVEMENT ---
 
-    // 旋回チェック
-    if (this.heading !== this.targetHeading) {
-      const turnStep = this.turnRate * dt;
+    // 1. Lateral Physics (Turn Dynamics)
+    // Calculate Heading Difference
+    let diff = this.targetHeading - this.heading;
+    if (diff > 180) diff -= 360;
+    if (diff < -180) diff += 360;
 
-      // 右周りか左回りか
-      let diff = this.targetHeading - this.heading;
-      if (diff > 180) diff -= 360;
-      if (diff < -180) diff += 360;
+    // Determine Target Bank Angle
+    const v_ms = this.speed * 0.514444;
+    const g = 9.80665;
 
-      if (Math.abs(diff) < turnStep) {
-        this.heading = this.targetHeading;
-      } else if (diff > 0) {
-        this.heading += turnStep;
+    let targetBankAngle = 0;
+
+    if (this.commandBank !== undefined) {
+      // Use Autopilot Control
+      targetBankAngle = this.commandBank;
+    } else {
+      // Fallback or Manual Logic (Heading Diff)
+      let desiredTurnRate = 0;
+      if (Math.abs(diff) < 0.1) {
+        desiredTurnRate = 0;
       } else {
-        this.heading -= turnStep;
+        desiredTurnRate = diff * 0.5;
+        const maxRate = 3.0; // Standard rate cap
+        desiredTurnRate = Math.max(
+          -maxRate,
+          Math.min(maxRate, desiredTurnRate),
+        );
       }
 
+      // Convert to Target Bank Angle
+      const omega = desiredTurnRate * (Math.PI / 180);
+      const requiredBankRad = Math.atan((v_ms * omega) / g);
+      targetBankAngle = requiredBankRad * (180 / Math.PI);
+    }
+
+    // Clamp Bank Angle
+    targetBankAngle = Math.max(
+      -this.maxBankAngle,
+      Math.min(this.maxBankAngle, targetBankAngle),
+    );
+
+    // Roll Dynamics
+    const rollRate = 5.0; // deg/s
+    const rollStep = rollRate * dt;
+    const bankDiff = targetBankAngle - this.bankAngle;
+
+    if (Math.abs(bankDiff) < rollStep) {
+      this.bankAngle = targetBankAngle;
+    } else {
+      this.bankAngle += Math.sign(bankDiff) * rollStep;
+    }
+
+    // Apply Turn (Heading Change) based on ACTUAL Bank Angle
+    if (v_ms > 10) {
+      const actualTurnRateRad =
+        (g * Math.tan((this.bankAngle * Math.PI) / 180)) / v_ms;
+      const actualTurnRateDeg = actualTurnRateRad * (180 / Math.PI);
+
+      this.heading += actualTurnRateDeg * dt;
       this.heading = (this.heading + 360) % 360;
     }
 
-    // 高度変更チェック
-    // Acceleration reduces climb performance
-    let currentClimbRate = this.climbRate;
-    const isAccelerating = this.speed < this.targetSpeed - 5; // 5kt margin
-    if (isAccelerating) {
-      // Trade-off: 70% climb rate when accelerating
-      currentClimbRate *= 0.7;
-    }
+    // 2. Vertical Physics (TEM - Total Energy Model)
+    let targetClimbRate = 0;
+    const maxClimbRate = this.performance.getMaxClimbRate(
+      this.speed,
+      this.altitude,
+      this.mass,
+    );
+    const altDiff = this.targetAltitude - this.altitude;
 
-    if (this.altitude !== this.targetAltitude) {
-      const climbStep = currentClimbRate * dt;
-      const diff = this.targetAltitude - this.altitude;
-
-      if (Math.abs(diff) < climbStep) {
+    if (this.commandVs !== undefined) {
+      // Use Autopilot Command
+      targetClimbRate = this.commandVs;
+      // Clamp to performance limits
+      targetClimbRate = Math.min(targetClimbRate, maxClimbRate);
+      targetClimbRate = Math.max(targetClimbRate, -3000); // Typical descent limit
+    } else {
+      // Manual/Fallback Logic
+      if (Math.abs(altDiff) < 10) {
+        targetClimbRate = 0;
         this.altitude = this.targetAltitude;
-      } else if (diff > 0) {
-        this.altitude += climbStep;
+      } else if (altDiff > 0) {
+        // Climb
+        targetClimbRate = maxClimbRate;
+        if (this.speed < this.targetSpeed - 5) {
+          targetClimbRate *= 0.6; // Save energy for acceleration
+        }
+        if (altDiff < 1000) {
+          targetClimbRate = Math.min(targetClimbRate, altDiff * 2);
+          targetClimbRate = Math.max(targetClimbRate, 500);
+        }
       } else {
-        // Descent is usually faster or same, not affected by thrust limit in same way but simplified
-        this.altitude -= climbStep;
+        // Descent
+        targetClimbRate = -2000; // Simplified descent
+        if (Math.abs(altDiff) < 1000) {
+          targetClimbRate = Math.max(targetClimbRate, -Math.abs(altDiff * 2));
+        }
       }
     }
 
-    // 速度変更チェック
+    this.climbRate = targetClimbRate;
+    this.altitude += (this.climbRate / 60) * dt;
+
+    // 3. Speed Physics (Simple Acceleration)
     if (this.speed !== this.targetSpeed) {
-      const accStep = this.acceleration * dt;
-      const diff = this.targetSpeed - this.speed;
+      // Acceleration limits
+      let maxAcc = this.acceleration;
+      if (this.climbRate > 1500) maxAcc *= 0.5;
 
-      if (Math.abs(diff) < accStep) {
-        this.speed = this.targetSpeed;
-      } else if (diff > 0) {
-        this.speed += accStep;
+      // High altitude damping (less power for acceleration)
+      if (this.altitude > 25000) maxAcc *= 0.7;
+
+      // Respect Aircraft Limits (Vmo/Mmo)
+      const limits = this.performance.getData().limits;
+      const speedOfSoundKt =
+        this.performance.getSpeedOfSound(this.altitude) / 0.514444;
+      const maxTAS = Math.min(
+        limits.max_speed_vmo * 1.5,
+        limits.max_mach_mmo * speedOfSoundKt,
+      ); // Vmo is CAS, so we approx it to TAS
+
+      const limitedTarget = Math.min(this.targetSpeed, maxTAS);
+
+      const spdDiff = limitedTarget - this.speed;
+      if (Math.abs(spdDiff) < maxAcc * dt) {
+        this.speed = limitedTarget;
       } else {
-        this.speed -= accStep;
+        this.speed += Math.sign(spdDiff) * maxAcc * dt;
       }
     }
 
+    // 4. Fuel Burn (Simplified)
+    // Approx 2500kg/h for medium, 6000kg/h for heavy at cruise
+    const baseFuelFlow =
+      this.performance.getData().category === "HEAVY" ? 6000 : 2600;
+    // Higher fuel flow during climb
+    const fuelFlowFactor = this.climbRate > 500 ? 2.5 : 1.0;
+    const fuelBurned = (baseFuelFlow / 3600) * fuelFlowFactor * dt;
+    this.mass = Math.max(
+      this.performance.getData().weights.oew,
+      this.mass - fuelBurned,
+    );
+
+    // Position Update
     const speedNMPerSec = this.speed / 3600;
-    const distance = speedNMPerSec * dt;
+    const distanceId = speedNMPerSec * dt;
     const angleRad = this.heading * (Math.PI / 180);
 
-    this.x += distance * Math.sin(angleRad);
-    this.y += distance * Math.cos(angleRad);
+    this.x += distanceId * Math.sin(angleRad);
+    this.y += distanceId * Math.cos(angleRad);
   }
 
   /**
