@@ -61,13 +61,13 @@ describe("CommandSystem", () => {
     expect(aircraft.targetHeading).toBe(90);
     expect(aircraft.activeLeg).toBeNull();
     expect(aircraft.activeWaypoint).toBeNull();
-    expect(aircraft.flightPlan.length).toBe(0);
+    expect(aircraft.autopilot.flightPlan.length).toBe(0);
   });
 
   it("should NOT clear flight plan for Speed/Altitude commands", () => {
     // 1. Setup
-    aircraft.flightPlan = [{ type: "TF", waypoint: "WP1" }];
-    const cmd = "JAL123 SPEED 200";
+    aircraft.autopilot.flightPlan = [{ type: "TF", waypoint: "WP1" }];
+    const cmd = "SPEED 200";
 
     // 2. Execute
     const result = commandSystem.handle(cmd, aircraft);
@@ -78,6 +78,6 @@ describe("CommandSystem", () => {
 
     // 4. Assertions
     expect(aircraft.targetSpeed).toBe(200);
-    expect(aircraft.flightPlan.length).toBe(1);
+    expect(aircraft.autopilot.flightPlan.length).toBe(1);
   });
 });

@@ -55,6 +55,7 @@ export class CommandSystem {
     }
 
     this.handleContactTower(command, ac, result, buffers);
+    this.handleContactCenter(command, ac, result, buffers);
     this.handleRadarContact(command, ac, result, buffers);
 
     return this.finalize(result, ac, buffers);
@@ -375,6 +376,38 @@ export class CommandSystem {
       });
       result.handled = true;
       return true;
+    }
+    return false;
+  }
+
+  private handleContactCenter(
+    command: string,
+    ac: Aircraft,
+    result: CommandResult,
+    buffers: LogBuffers,
+  ): boolean {
+    if (command === "CONTACT CENTER" || command === "CC") {
+      if (ac.origin !== "RJTT") {
+        result.atcLog = `${ac.callsign} is not a departure. Unable contact center.`;
+        result.handled = true;
+        return true; // Handled as error
+      }
+
+      const dist = Math.sqrt(ac.x * ac.x + ac.y * ac.y);
+      if (ac.altitude >= 18000 || dist >= 30) {
+        const phrase = `contact tokyo control 125.4 good day`; // Assuming 125.4 for center
+        this.addLogs(buffers, phrase, phrase, `125.4 good day`);
+        result.pendingUpdates.push(() => {
+          ac.ownership = "HANDOFF_COMPLETE";
+        });
+      } else {
+        result.atcLog = `${ac.callsign} unable contact center, not ready for handoff.`;
+        console.log(
+          `${ac.callsign} Unable contact center (Dist: ${dist.toFixed(1)}NM, Alt: ${Math.round(ac.altitude)}ft)`,
+        );
+      }
+      result.handled = true;
+      return true; // Command was "CC", so it's handled (either success or error)
     }
     return false;
   }

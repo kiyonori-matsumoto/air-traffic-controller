@@ -358,8 +358,22 @@ export class TrafficManager {
     const isSelected = logic === this.selected;
 
     let baseColor = "#00ff41";
+    let isBlinking = false; // Add blinking flag
+
     if (isOffered) baseColor = "#cccc00";
     else if (isHandoffComplete) baseColor = "#ffffff";
+    else if (logic.ownership === "OWNED" && logic.origin === "RJTT") {
+      // Check if ready for handoff to Center
+      const dist = Math.sqrt(logic.x * logic.x + logic.y * logic.y);
+      if (logic.altitude >= 18000 || dist >= 30) {
+        // Blink between white and green to indicate ready for handoff
+        isBlinking = true;
+      }
+    }
+
+    if (isBlinking && Math.floor(this.scene.time.now / 500) % 2 === 0) {
+      baseColor = "#ffffff"; // Flash white
+    }
 
     ac.components.dataText.setColor(baseColor);
     ac.components.callsignText.setColor(baseColor);
@@ -370,6 +384,10 @@ export class TrafficManager {
       ac.components.highlight.setVisible(true);
     } else if (isOffered) {
       ac.components.highlight.setStrokeStyle(1.5, 0xcccc00);
+      ac.components.highlight.setVisible(true);
+    } else if (isBlinking && baseColor === "#ffffff") {
+      // Blink ring
+      ac.components.highlight.setStrokeStyle(1.5, 0xffffff);
       ac.components.highlight.setVisible(true);
     } else if (isHandoffComplete) {
       ac.components.highlight.setStrokeStyle(1.5, 0xffffff);

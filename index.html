@@ -1,96 +1,243 @@
 <!doctype html>
 <html lang="en">
-
-<head>
+  <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
     <title>Radar Nexus: Live Control</title>
-</head>
+  </head>
 
-<body>
+  <body>
     <div id="app">
-        <div id="game-container"></div>
+      <div id="game-container"></div>
 
-        <!-- Top Interface -->
-        <div id="top-bar">
-            <div class="logo-area glass-panel" style="padding: 8px 16px;">
-                ROR | RADAR NEXUS
-            </div>
-            <div id="score-display" class="glass-panel" style="padding: 8px 16px; font-size: 0.9rem; color: #fff;">
-                SCORE: 0
-            </div>
+      <!-- Top Interface -->
+      <div id="top-bar">
+        <div class="logo-area glass-panel" style="padding: 8px 16px">
+          ROR | RADAR NEXUS
+        </div>
+        <div
+          id="score-display"
+          class="glass-panel"
+          style="padding: 8px 16px; font-size: 0.9rem; color: #fff"
+        >
+          SCORE: 0
+        </div>
+      </div>
+
+      <!-- Help Button -->
+      <button
+        id="btn-help"
+        class="glass-panel"
+        style="
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          padding: 8px 16px;
+          cursor: pointer;
+          color: #e1e1e1;
+          background: rgba(50, 50, 50, 0.5);
+        "
+      >
+        ?
+      </button>
+
+      <!-- Flight Progress Strips Panel (Left Side) -->
+      <div
+        id="strips-panel"
+        class="glass-panel"
+        style="
+          position: absolute;
+          top: 80px;
+          left: 20px;
+          bottom: 160px;
+          width: 250px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          overflow-y: auto;
+          padding: 10px;
+          pointer-events: auto;
+        "
+      >
+        <!-- Strips will be injected here -->
+      </div>
+
+      <!-- Communication Log Panel (Right Side) - Integrated Command Input -->
+      <div
+        id="comm-log-panel"
+        class="glass-panel"
+        style="
+          position: absolute;
+          top: 80px;
+          right: 20px;
+          bottom: 40px;
+          width: 350px;
+          display: flex;
+          flex-direction: column;
+          pointer-events: auto;
+        "
+      >
+        <div
+          class="panel-header"
+          style="
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          "
+        >
+          <h2 style="margin: 0; font-size: 1rem; color: #888">COMMUNICATION</h2>
+        </div>
+        <div id="comm-messages">
+          <div class="msg system">SYSTEM: Welcome to Radar Nexus</div>
         </div>
 
-        <!-- Help Button -->
-        <button id="btn-help" class="glass-panel"
-            style="position: absolute; top: 20px; right: 20px; padding: 8px 16px; cursor: pointer; color: #e1e1e1; background: rgba(50,50,50,0.5);">
-            ?
+        <!-- Integrated Command Input -->
+        <div
+          class="input-area"
+          style="
+            margin-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 8px;
+          "
+        >
+          <span style="color: #00ff41; margin-right: 4px">&gt;</span>
+          <input
+            type="text"
+            id="input-command"
+            placeholder="ENTER COMMAND..."
+            spellcheck="false"
+            autocomplete="off"
+            style="
+              width: calc(100% - 20px);
+              background: transparent;
+              border: none;
+              color: #fff;
+              font-family: monospace;
+              font-size: 1rem;
+              outline: none;
+            "
+          />
+        </div>
+      </div>
+
+      <!-- Help Modal (Hidden by default) -->
+      <div
+        id="help-modal"
+        class="glass-panel"
+        style="
+          display: none;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 500px;
+          padding: 20px;
+          z-index: 1000;
+          max-height: 80vh;
+          overflow-y: auto;
+        "
+      >
+        <h2>COMMAND LIST</h2>
+        <ul
+          style="
+            list-style: none;
+            padding: 0;
+            font-size: 0.9rem;
+            line-height: 1.6;
+          "
+        >
+          <li><strong>H[deg]</strong> - HEADING (e.g., H270)</li>
+          <li><strong>A[ft]</strong> - ALTITUDE (e.g., A4000)</li>
+          <li><strong>S[kt]</strong> - SPEED (e.g., S200)</li>
+          <li><strong>CT</strong> - CONTACT TOWER</li>
+          <li>
+            <strong>CC</strong> - CONTACT CENTER (Departures &gt;18000ft or
+            &gt;30NM)
+          </li>
+          <li><strong>DCT [wp]</strong> - DIRECT TO WAYPOINT</li>
+          <li><strong>T[on/off]</strong> - TOGGLE TRAIL DOTS (Not impl yet)</li>
+        </ul>
+        <div style="text-align: center; margin-top: 20px">
+          <button
+            id="btn-close-help"
+            style="
+              padding: 8px 16px;
+              background: #333;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+            "
+          >
+            CLOSE
+          </button>
+        </div>
+      </div>
+
+      <!-- Speed Controls (Bottom Left) -->
+      <div id="speed-controls" class="glass-panel" style="padding: 0">
+        <button id="btn-speed-1" class="speed-segment active">1x</button>
+        <button id="btn-speed-2" class="speed-segment">2x</button>
+        <button id="btn-speed-4" class="speed-segment">4x</button>
+      </div>
+
+      <!-- Zoom Controls -->
+      <div
+        id="zoom-controls"
+        class="glass-panel"
+        style="
+          position: absolute;
+          bottom: 80px;
+          left: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding: 4px;
+          align-items: center;
+        "
+      >
+        <div
+          id="radar-range-display"
+          style="font-size: 0.8rem; color: #00ff41; margin-bottom: 2px"
+        >
+          80NM
+        </div>
+        <button
+          id="btn-zoom-in"
+          style="
+            width: 32px;
+            height: 32px;
+            background: rgba(50, 50, 50, 0.5);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            font-size: 1.2rem;
+          "
+        >
+          +
         </button>
-
-        <!-- Flight Progress Strips Panel (Left Side) -->
-        <div id="strips-panel" class="glass-panel"
-            style="position: absolute; top: 80px; left: 20px; bottom: 160px; width: 250px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; padding: 10px; pointer-events: auto;">
-            <!-- Strips will be injected here -->
-        </div>
-
-        <!-- Communication Log Panel (Right Side) - Integrated Command Input -->
-        <div id="comm-log-panel" class="glass-panel"
-            style="position: absolute; top: 80px; right: 20px; bottom: 40px; width: 350px; display: flex; flex-direction: column; pointer-events: auto;">
-            <div class="panel-header"
-                style="padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                <h2 style="margin:0; font-size: 1rem; color: #888;">COMMUNICATION</h2>
-            </div>
-            <div id="comm-messages">
-                <div class="msg system">SYSTEM: Welcome to Radar Nexus</div>
-            </div>
-
-            <!-- Integrated Command Input -->
-            <div class="input-area"
-                style="margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;">
-                <span style="color: #00ff41; margin-right: 4px;">&gt;</span>
-                <input type="text" id="input-command" placeholder="ENTER COMMAND..." spellcheck="false"
-                    autocomplete="off"
-                    style="width: calc(100% - 20px); background: transparent; border: none; color: #fff; font-family: monospace; font-size: 1rem; outline: none;">
-            </div>
-        </div>
-
-        <!-- Help Modal (Hidden by default) -->
-        <div id="help-modal" class="glass-panel"
-            style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 500px; padding: 20px; z-index: 1000; max-height: 80vh; overflow-y: auto;">
-            <h2>COMMAND LIST</h2>
-            <ul style="list-style: none; padding: 0; font-size: 0.9rem; line-height: 1.6;">
-                <li><strong>H[deg]</strong> - HEADING (e.g., H270)</li>
-                <li><strong>A[ft]</strong> - ALTITUDE (e.g., A4000)</li>
-                <li><strong>S[kt]</strong> - SPEED (e.g., S200)</li>
-                <li><strong>CT</strong> - CONTACT TOWER</li>
-                <li><strong>DCT [wp]</strong> - DIRECT TO WAYPOINT</li>
-                <li><strong>T[on/off]</strong> - TOGGLE TRAIL DOTS (Not impl yet)</li>
-            </ul>
-            <div style="text-align: center; margin-top: 20px;">
-                <button id="btn-close-help"
-                    style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer;">CLOSE</button>
-            </div>
-        </div>
-
-        <!-- Speed Controls (Bottom Left) -->
-        <div id="speed-controls" class="glass-panel" style="padding: 0;">
-            <button id="btn-speed-1" class="speed-segment active">1x</button>
-            <button id="btn-speed-2" class="speed-segment">2x</button>
-            <button id="btn-speed-4" class="speed-segment">4x</button>
-        </div>
-
-        <!-- Zoom Controls -->
-        <div id="zoom-controls" class="glass-panel" style="position: absolute; bottom: 80px; left: 20px; display: flex; flex-direction: column; gap: 4px; padding: 4px; align-items: center;">
-            <div id="radar-range-display" style="font-size: 0.8rem; color: #00ff41; margin-bottom: 2px;">80NM</div>
-            <button id="btn-zoom-in" style="width: 32px; height: 32px; background: rgba(50,50,50,0.5); color: #fff; border: 1px solid rgba(255,255,255,0.2); cursor: pointer; font-size: 1.2rem;">+</button>
-            <button id="btn-zoom-out" style="width: 32px; height: 32px; background: rgba(50,50,50,0.5); color: #fff; border: 1px solid rgba(255,255,255,0.2); cursor: pointer; font-size: 1.2rem;">-</button>
-        </div>
-
+        <button
+          id="btn-zoom-out"
+          style="
+            width: 32px;
+            height: 32px;
+            background: rgba(50, 50, 50, 0.5);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            font-size: 1.2rem;
+          "
+        >
+          -
+        </button>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
-</body>
-
+  </body>
 </html>
