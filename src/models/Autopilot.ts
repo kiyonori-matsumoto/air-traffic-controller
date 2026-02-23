@@ -50,7 +50,7 @@ export class Autopilot {
     "CLIMB";
 
   // Debug Flag
-  public debug: boolean = true;
+  public debug: boolean = false;
 
   // MCP Targets (Selected by Pilot/ATC)
   public mcpHeading: number;
@@ -62,12 +62,12 @@ export class Autopilot {
   public activeLeg: FlightLegTarget | null = null;
 
   // PID Controllers
-  // Kp=1.1, Ki=0.005, Kd=2.5 (Balanced tuning)
-  private bankPID = new PIDController(2.5, 0.005, 2.5, -25, 25);
+  // Kp=2.0 (Reduced from 2.5), Ki=0.0005, Kd=2.5 (Balanced tuning)
+  private bankPID = new PIDController(2.0, 0.0005, 2.5, -25, 25);
   // vsPID translates altitude error (ft) to target VS (fpm).
-  // Kp=10 means for every 100ft error, we command 1000fpm.
-  // We clamp output to reasonable values based on aircraft performance or mode.
-  private vsPID = new PIDController(10.0, 0.05, 5.0, -3000, 4000);
+  // Kp=10.0 means for every 100ft error, we command 1000fpm.
+  // Kd=2.0 (Increased from 1.5) to further improve damping near target altitude.
+  private vsPID = new PIDController(10.0, 0.1, 2.0, -3000, 4000);
 
   constructor(private aircraft: IAircraft) {
     this.mcpHeading = aircraft.heading;
@@ -112,12 +112,14 @@ export class Autopilot {
         `${this.aircraft.callsign} Lateral Mode: ${this.prevLateralMode} -> ${this.lateralMode}`,
       );
       this.prevLateralMode = this.lateralMode;
+      this.bankPID.reset();
     }
     if (this.verticalMode !== this.prevVerticalMode) {
       console.log(
         `${this.aircraft.callsign} Vertical Mode: ${this.prevVerticalMode} -> ${this.verticalMode}`,
       );
       this.prevVerticalMode = this.verticalMode;
+      this.vsPID.reset();
     }
     if (this.speedMode !== this.prevSpeedMode) {
       console.log(
@@ -293,6 +295,14 @@ export class Autopilot {
     // PID Control for Vertical Speed
     const altError = targetAlt - this.aircraft.altitude;
 
+    // Synchronize PID limits with aircraft performance for accurate anti-windup
+    const maxRC = (this.aircraft as any).performance.getMaxClimbRate(
+      this.aircraft.speed,
+      this.aircraft.altitude,
+      this.aircraft.mass,
+    );
+    this.vsPID.setOutputLimits(-3000, maxRC);
+
     // Command VS based on altitude error
     let vsCmd = this.vsPID.update(altError, dt);
 
@@ -428,6 +438,7 @@ export class Autopilot {
     this.flightPlan = [];
     this.activeLeg = null;
     this.aircraft.activeWaypoint = null;
+    this.bankPID.reset();
   }
 
   public activateFlightPlan(
@@ -453,10 +464,13 @@ export class Autopilot {
     this.lateralMode = "LNAV";
     this.verticalMode = "VNAV";
     this.speedMode = "FMS";
+    this.bankPID.reset();
+    this.vsPID.reset();
   }
 
   public setAltitude(alt: number) {
     this.mcpAltitude = alt;
+    this.vsPID.reset();
   }
 
   public setSpeed(spd: number) {

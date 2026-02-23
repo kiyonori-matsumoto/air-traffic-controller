@@ -29,14 +29,17 @@ describe("Vertical Profile and Speed Scheduling", () => {
     ac.altitude = 10000;
     ac.autopilot.setAltitude(15000);
 
+    const expectedMaxRC = ac.performance.getMaxClimbRate(
+      ac.speed,
+      ac.altitude,
+      ac.mass,
+    );
     ac.update(1.0);
 
     // vsPID should command a positive VS
     expect(ac.commandVs).toBeGreaterThan(0);
     expect(ac.climbRate).toBeGreaterThan(0);
-    expect(ac.climbRate).toBeLessThanOrEqual(
-      ac.performance.getMaxClimbRate(ac.speed, ac.altitude, ac.mass),
-    );
+    expect(ac.climbRate).toBeCloseTo(expectedMaxRC, -1);
   });
 
   it("should respect max climb rate performance limit", () => {

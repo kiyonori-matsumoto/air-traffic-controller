@@ -66,17 +66,36 @@ export class PIDController {
     this.prevError = error;
 
     let output = p + i + d;
+    const rawOutput = output;
 
     // Clamping & Anti-Windup
     // 出力が最大/最小を超えないようにクランプします。
     if (output > this.maxOutput) {
       output = this.maxOutput;
-      // メモ: ここで積分値の増加を止めるなどのアンチワインドアップ処理を入れるとより安定します。
     } else if (output < this.minOutput) {
       output = this.minOutput;
     }
 
+    // Anti-Windup: If the output is saturated and the error has the same sign as the output,
+    // we back-calculate/clamp the integral to prevent it from growing further.
+    // This is the "Clamping" method.
+    const isSaturated = output !== rawOutput;
+    if (isSaturated && Math.sign(error) === Math.sign(rawOutput)) {
+      // Revert the integral addition if it's making saturation worse
+      this.integral -= error * dt;
+    }
+
     return output;
+  }
+
+  /**
+   * 出力の制限値を動的に更新します。
+   * @param min 最小出力
+   * @param max 最大出力
+   */
+  public setOutputLimits(min: number, max: number) {
+    this.minOutput = min;
+    this.maxOutput = max;
   }
 
   /**

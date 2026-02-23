@@ -230,6 +230,14 @@ export class Aircraft {
     if (this.commandVs !== undefined) {
       // Use Autopilot Command
       targetClimbRate = this.commandVs;
+
+      // "Snap to altitude" logic for Autopilot
+      // If error is very small (< 1ft) and requested VS is slow, snap to target
+      if (Math.abs(altDiff) < 1.0 && Math.abs(targetClimbRate) < 500) {
+        targetClimbRate = 0;
+        this.altitude = this.targetAltitude;
+      }
+
       // Clamp to performance limits
       targetClimbRate = Math.min(targetClimbRate, maxClimbRate);
       targetClimbRate = Math.max(targetClimbRate, -3000); // Typical descent limit
