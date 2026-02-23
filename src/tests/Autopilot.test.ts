@@ -20,6 +20,7 @@ describe("Autopilot Logic", () => {
     // Mock Aircraft with minimal properties needed
     aircraft = new Aircraft(
       "TEST01",
+      "B737",
       0,
       0,
       250,

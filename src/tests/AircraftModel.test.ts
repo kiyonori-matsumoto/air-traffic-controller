@@ -6,7 +6,17 @@ describe("Aircraft Model", () => {
 
   beforeEach(() => {
     // Initialize with standard values
-    aircraft = new Aircraft("JAL123", 0, 0, 250, 0, 10000, "RJTT", "RJCC");
+    aircraft = new Aircraft(
+      "JAL123",
+      "B737",
+      0,
+      0,
+      250,
+      0,
+      10000,
+      "RJTT",
+      "RJCC",
+    );
     // x=0, y=0, spd=250, hdg=0 (North), alt=10000
   });
 
@@ -30,8 +40,9 @@ describe("Aircraft Model", () => {
 
       aircraft.update(dt);
 
-      // Should increase by 3 degrees
-      expect(aircraft.heading).toBe(3);
+      // Should increase slightly due to roll-in delay
+      // At 250kt, 1s roll to 5 deg bank results in ~0.38 deg turn
+      expect(aircraft.heading).toBeCloseTo(0.38, 1);
     });
 
     it("should wrap heading around 360", () => {
@@ -42,8 +53,8 @@ describe("Aircraft Model", () => {
 
       aircraft.update(1); // 359 -> 2 (cross 0)
 
-      // 359 + 3 = 362 -> 2
-      expect(aircraft.heading).toBe(2);
+      // 359 + ~0.38 = 359.38
+      expect(aircraft.heading).toBeCloseTo(359.38, 1);
     });
 
     it("should climb towards target altitude", () => {
@@ -56,7 +67,9 @@ describe("Aircraft Model", () => {
 
       aircraft.update(dt);
 
-      expect(aircraft.altitude).toBe(10035);
+      // 10000 + ~66ft (based on B737 max climb rate at 10k ft)
+      expect(aircraft.altitude).toBeGreaterThan(10060);
+      expect(aircraft.altitude).toBeLessThan(10070);
     });
 
     it("should accelerate towards target speed", () => {
@@ -75,7 +88,17 @@ describe("Aircraft Model", () => {
     let other: Aircraft;
 
     beforeEach(() => {
-      other = new Aircraft("ANA456", 0, 0, 250, 0, 10000, "RJTT", "RJCC");
+      other = new Aircraft(
+        "ANA456",
+        "B737",
+        0,
+        0,
+        250,
+        0,
+        10000,
+        "RJTT",
+        "RJCC",
+      );
     });
 
     it("should return NORMAL when well separated", () => {

@@ -7,7 +7,17 @@ describe("VNAV Climb Logic", () => {
 
   beforeEach(() => {
     // Aircraft setup: 0,0, Heading 360, Alt 2000
-    aircraft = new Aircraft("JAL123", 0, 0, 250, 360, 2000, "RJTT", "RJCC");
+    aircraft = new Aircraft(
+      "JAL123",
+      "B737",
+      0,
+      0,
+      250,
+      360,
+      2000,
+      "RJTT",
+      "RJCC",
+    );
     aircraft.autopilot.verticalMode = "VNAV";
     aircraft.autopilot.lateralMode = "LNAV";
   });

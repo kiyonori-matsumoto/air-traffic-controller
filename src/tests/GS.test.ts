@@ -34,7 +34,17 @@ describe("Glide Slope (GS) Logic", () => {
     // Fails altitude check!
 
     // Fix: Lower aircraft altitude to be within capture range.
-    aircraft = new Aircraft("JAL123", 0, -10, 140, 0, 3000, "RJTT", "RJCC");
+    aircraft = new Aircraft(
+      "JAL123",
+      "B737",
+      0,
+      -10,
+      140,
+      0,
+      3000,
+      "RJTT",
+      "RJCC",
+    );
     runway = new Runway("34R", 0, 0, 360, 10000);
   });
 

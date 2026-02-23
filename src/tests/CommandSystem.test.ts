@@ -15,7 +15,17 @@ describe("CommandSystem", () => {
     commandSystem = new CommandSystem(airport);
 
     // Create a dummy aircraft
-    aircraft = new Aircraft("JAL123", 0, 0, 250, 0, 10000, "RJTT", "RJCC");
+    aircraft = new Aircraft(
+      "JAL123",
+      "B737",
+      0,
+      0,
+      250,
+      0,
+      10000,
+      "RJTT",
+      "RJCC",
+    );
     aircraft.ownership = "OWNED";
   });
 
