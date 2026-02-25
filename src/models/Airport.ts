@@ -168,6 +168,18 @@ export class Airport {
       zConstraint?: "AT" | "ABOVE" | "BELOW";
       speedLimit?: number;
     }[] = [
+      // AROSA: 34 + 42/60 + 01.7/3600 = 34.700472, 140 + 41/60 + 57.3/3600 = 140.699250
+      { name: "AROSA", lat: 34.700472, lon: 140.69925 },
+      // AVEEY: 34 + 41/60 + 55.9/3600 = 34.698861, 140 + 21/60 + 58.0/3600 = 140.366111
+      {
+        name: "AVEEY",
+        lat: 34.698861,
+        lon: 140.366111,
+        z: 11000,
+        speedLimit: 230,
+        zConstraint: "AT",
+      },
+
       // TT456: 345329.3N / 1401440.2E
       // 34 + 53/60 + 29.3/3600 = 34.891472
       // 140 + 14/60 + 40.2/3600 = 140.244500
@@ -239,6 +251,7 @@ export class Airport {
         lon: 140.218306,
         z: 7000,
         speedLimit: 210,
+        zConstraint: "AT",
       },
 
       // TT454: 344844.8N / 1395725.3E
@@ -430,8 +443,9 @@ export class Airport {
         "EDDIE",
         "CREAM",
       ],
-      EAST_STAR: [
-        "TT456",
+      AROSA2C: [
+        "AROSA",
+        "AVEEY",
         "TT460",
         "TT461",
         "CIVIC",

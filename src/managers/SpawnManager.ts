@@ -40,8 +40,8 @@ export class SpawnManager {
     {
       name: "EAST_ARRIVAL",
       bearing: 110,
-      target: "TT456",
-      star: "EAST_STAR",
+      target: "AROSA",
+      star: "AROSA2C",
       origins: ["RJAA", "KLAX", "PHNL"],
     }, // From South East
     {
@@ -231,6 +231,7 @@ export class SpawnManager {
       //   destination: "RJTT",
       //   altitude: 6000,
       //   speed: 220,
+      //   star: "AROSA2C",
       //   startDistance: 35,
       //   initialState: "RADAR_CONTACT", // < 50NM -> Owned (White)
       // },
@@ -300,6 +301,7 @@ export class SpawnManager {
       //   destination: "RJTT",
       //   altitude: 13000,
       //   speed: 300,
+      //   star: "AROSA2C",
       // },
       // {
       //   time: 75,
@@ -333,6 +335,7 @@ export class SpawnManager {
       //   destination: "RJTT",
       //   altitude: 11000,
       //   speed: 290,
+      //   star: "AROSA2C",
       // },
       // {
       //   time: 135,
