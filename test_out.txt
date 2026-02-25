@@ -1,0 +1,224 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/home/kiyo/ghq/github.com/kiyonori-matsumoto/air-traffic-controller[39m
+
+ [32m✓[39m src/tests/Sanity.test.ts[2m > [22mSanity Check[2m > [22mshould pass true[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/PIDController.test.ts[2m > [22mPIDController[2m > [22mshould implement anti-windup via clamping[32m 1[2mms[22m[39m
+[90mstdout[2m | src/tests/Diag.test.ts[2m > [22m[2mPerformance Diagnostic[2m > [22m[2mlogs climb rates
+[22m[39mCurrent performance model diagnostic:
+
+Model: B737, Mass: 67735kg
+Alt (ft) | Thrust (N) | Drag (N) | Max Climb Rate (fpm)
+---------|------------|----------|---------------------
+0        | 223376     | 38451    | 5779
+10000    | 164957     | 38079    | 3965
+20000    | 119015     | 41628    | 2419
+30000    | 83570      | 50543    | 1032
+35000    | 69216      | 57802    | 357
+
+Model: B777, Mass: 296422kg
+Alt (ft) | Thrust (N) | Drag (N) | Max Climb Rate (fpm)
+---------|------------|----------|---------------------
+0        | 942080     | 142998   | 5707
+10000    | 695700     | 153615   | 3871
+20000    | 501942     | 181009   | 2292
+30000    | 352453     | 232774   | 855
+35000    | 291917     | 271824   | 144
+
+ [32m✓[39m src/tests/Diag.test.ts[2m > [22mPerformance Diagnostic[2m > [22mlogs climb rates[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/Performance.test.ts[2m > [22mAircraftPerformance[2m > [22mshould load B737 data by default[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/Performance.test.ts[2m > [22mAircraftPerformance[2m > [22mshould load B777 data correctly[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Performance.test.ts[2m > [22mAircraftPerformance[2m > [22mPhysics Calculations (B737)[2m > [22mshould calculate reasonable drag at sea level[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Performance.test.ts[2m > [22mAircraftPerformance[2m > [22mPhysics Calculations (B737)[2m > [22mshould calculate max thrust decrease with altitude[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Performance.test.ts[2m > [22mAircraftPerformance[2m > [22mPhysics Calculations (B737)[2m > [22mshould give positive climb rate at sea level[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Performance.test.ts[2m > [22mAircraftPerformance[2m > [22mPhysics Calculations (B737)[2m > [22mshould give lower climb rate at max altitude[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Performance.test.ts[2m > [22mAircraftPerformance[2m > [22mPhysics Calculations (B777)[2m > [22mshould have higher drag than B737[32m 0[2mms[22m[39m
+[90mstdout[2m | src/tests/VNAV.test.ts[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould climb to MCP if no constraints
+[22m[39mJAL123 Lateral Mode: HDG -> LNAV
+JAL123 Vertical Mode: ALT -> VNAV
+JAL123 Speed Mode: MANUAL -> FMS
+JAL123 MCP Altitude: 2000 -> 10000
+
+[90mstdout[2m | src/tests/VNAV.test.ts[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould cap climb at restriction for AT or BELOW
+[22m[39mJAL123 Lateral Mode: HDG -> LNAV
+JAL123 Vertical Mode: ALT -> VNAV
+JAL123 Speed Mode: MANUAL -> FMS
+JAL123 MCP Altitude: 2000 -> 10000
+
+[90mstdout[2m | src/tests/VNAV.test.ts[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould climb to MCP if restriction is ABOVE
+[22m[39mJAL123 Lateral Mode: HDG -> LNAV
+JAL123 Vertical Mode: ALT -> VNAV
+JAL123 Speed Mode: MANUAL -> FMS
+JAL123 MCP Altitude: 2000 -> 10000
+
+[90mstdout[2m | src/tests/VNAV.test.ts[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould respect lower MCP even with higher constraint (Safety)
+[22m[39mJAL123 Lateral Mode: HDG -> LNAV
+JAL123 Vertical Mode: ALT -> VNAV
+JAL123 Speed Mode: MANUAL -> FMS
+JAL123 MCP Altitude: 2000 -> 5000
+
+[90mstdout[2m | src/tests/VNAV.test.ts[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould handle AT constraint as BELOW logic in climb
+[22m[39mJAL123 Lateral Mode: HDG -> LNAV
+JAL123 Vertical Mode: ALT -> VNAV
+JAL123 Speed Mode: MANUAL -> FMS
+JAL123 MCP Altitude: 2000 -> 10000
+
+[90mstdout[2m | src/tests/VNAV.test.ts[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould respect altitude constraint even if previous leg was unconstrained
+[22m[39mJAL123 Lateral Mode: HDG -> LNAV
+JAL123 Vertical Mode: ALT -> VNAV
+JAL123 Speed Mode: MANUAL -> FMS
+
+[90mstdout[2m | src/tests/Physics.test.ts[2m > [22m[2mPhysics Integration in Aircraft[2m > [22m[2mLateral Physics (Turn Dynamics)[2m > [22m[2mshould roll to bank angle when heading change is commanded
+[22m[39mTEST01 MCP Heading: 0 -> 90
+
+[90mstdout[2m | src/tests/Physics.test.ts[2m > [22m[2mPhysics Integration in Aircraft[2m > [22m[2mVertical Physics (Climb Performance)[2m > [22m[2mshould calculate positive climb rate when commanded
+[22m[39mTEST01 MCP Altitude: 10000 -> 20000
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mILS Approach Logic[2m > [22m[2mshould capture ILS when aligned and correct altitude
+[22m[39mTEST01 captured ILS 34R
+
+[90mstdout[2m | src/tests/Autopilot.test.ts[2m > [22m[2mAutopilot Logic[2m > [22m[2mILS Approach Logic[2m > [22m[2mshould switch Speed Mode to MANUAL on ILS capture to prevent FMS override
+[22m[39mTEST01 captured ILS 34R
+
+[90mstdout[2m | src/tests/VNAV.test.ts[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould unsafe climb if Safety Logic is missing (Demonstration)
+[22m[39mJAL123 Lateral Mode: HDG -> LNAV
+JAL123 Vertical Mode: ALT -> VNAV
+JAL123 Speed Mode: MANUAL -> FMS
+JAL123 MCP Altitude: 2000 -> 5000
+
+[90mstdout[2m | src/tests/VNAV.test.ts[2m > [22m[2mVNAV Climb Logic[2m > [22m[2mshould restrict descent below 10000ft if speed is > 250kt
+[22m[39mJAL123 Lateral Mode: HDG -> LNAV
+JAL123 Vertical Mode: ALT -> VNAV
+JAL123 Speed Mode: MANUAL -> FMS
+JAL123 MCP Altitude: 2000 -> 4000
+
+[90mstdout[2m | src/tests/Physics.test.ts[2m > [22m[2mPhysics Integration in Aircraft[2m > [22m[2mVertical Physics (Climb Performance)[2m > [22m[2mshould climb slower at high altitude (Performance Model)
+[22m[39mTEST01 MCP Altitude: 10000 -> 15000
+TEST01 MCP Altitude: 10000 -> 40000
+
+[90mstdout[2m | src/tests/AircraftModel.test.ts[2m > [22m[2mAircraft Model[2m > [22m[2mPhysics & Movement[2m > [22m[2mshould turn towards target heading
+[22m[39mJAL123 MCP Heading: 0 -> 90
+
+[90mstdout[2m | src/tests/AircraftModel.test.ts[2m > [22m[2mAircraft Model[2m > [22m[2mPhysics & Movement[2m > [22m[2mshould wrap heading around 360
+[22m[39mJAL123 MCP Heading: 0 -> 5
+
+[90mstdout[2m | src/tests/AircraftModel.test.ts[2m > [22m[2mAircraft Model[2m > [22m[2mPhysics & Movement[2m > [22m[2mshould climb towards target altitude
+[22m[39mJAL123 Speed Mode: MANUAL -> FMS
+JAL123 MCP Altitude: 10000 -> 11000
+
+[90mstdout[2m | src/tests/AutopilotPID.test.ts[2m > [22m[2mAutopilot PID Control[2m > [22m[2mshould generate bank command when heading error exists
+[22m[39mPID01 MCP Heading: 0 -> 90
+
+[90mstdout[2m | src/tests/AutopilotPID.test.ts[2m > [22m[2mAutopilot PID Control[2m > [22m[2mshould reduce bank command as error reduces
+[22m[39mPID01 MCP Heading: 0 -> 20
+
+[90mstdout[2m | src/tests/AutopilotPID.test.ts[2m > [22m[2mAutopilot PID Control[2m > [22m[2mshould converge to target heading
+[22m[39mPID01 MCP Heading: 0 -> 45
+
+[90mstdout[2m | src/tests/VerticalProfile.test.ts[2m > [22m[2mVertical Profile and Speed Scheduling[2m > [22m[2mshould shift target speed at high altitude (Mach Scheduling)
+[22m[39mVTEST Speed Mode: MANUAL -> FMS
+
+[90mstdout[2m | src/tests/VerticalProfile.test.ts[2m > [22m[2mVertical Profile and Speed Scheduling[2m > [22m[2mshould follow VS commands from Autopilot
+[22m[39mVTEST MCP Altitude: 10000 -> 15000
+
+[90mstdout[2m | src/tests/VerticalProfile.test.ts[2m > [22m[2mVertical Profile and Speed Scheduling[2m > [22m[2mshould respect max climb rate performance limit
+[22m[39mVTEST Vertical Mode: ALT -> VNAV
+VTEST MCP Altitude: 10000 -> 40000
+
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mMode Transitions[2m > [22mshould switch to HDG mode and clear LNAV[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mMode Transitions[2m > [22mshould switch to LNAV/VNAV via activateFlightPlan[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mMode Transitions[2m > [22mshould activate FMS mode when flight plan is activated[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mVNAV Climb Logic[2m > [22mshould adhere to AT constraint[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mVNAV Climb Logic[2m > [22mshould adhere to BELOW constraint[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mVNAV Climb Logic[2m > [22mshould ignore ABOVE constraint for Target and aim for Climb Target[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mVNAV Climb Logic[2m > [22mshould NOT update MCP altitude (Safety Logic Removed by User)[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mVNAV Climb Logic[2m > [22mshould limit speed to 250kt below 10,000ft[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mVNAV Climb Logic[2m > [22mshould use Cruise Speed above 10,000ft[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mVNAV Climb Logic[2m > [22mshould respect Waypoint Speed Limit in FMS mode[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mSpeed Scheduling[2m > [22mshould target 250kt when below 10000ft[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mSpeed Scheduling[2m > [22mshould target 300kt when above 10000ft[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mSpeed Scheduling[2m > [22mshould respect Step Down Speed Logic (Look Ahead)[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mSpeed Scheduling[2m > [22mshould handle multi-leg gap without accelerating[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mSpeed Scheduling[2m > [22mshould not exceed waypoint speed limit[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mILS Approach Logic[2m > [22mshould capture ILS when aligned and correct altitude[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mILS Approach Logic[2m > [22mshould NOT capture ILS if not flying[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Autopilot.test.ts[2m > [22mAutopilot Logic[2m > [22mILS Approach Logic[2m > [22mshould switch Speed Mode to MANUAL on ILS capture to prevent FMS override[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/VNAV.test.ts[2m > [22mVNAV Climb Logic[2m > [22mshould climb to MCP if no constraints[32m 2[2mms[22m[39m
+ [32m✓[39m src/tests/VNAV.test.ts[2m > [22mVNAV Climb Logic[2m > [22mshould cap climb at restriction for AT or BELOW[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/VNAV.test.ts[2m > [22mVNAV Climb Logic[2m > [22mshould climb to MCP if restriction is ABOVE[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/VNAV.test.ts[2m > [22mVNAV Climb Logic[2m > [22mshould respect lower MCP even with higher constraint (Safety)[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/VNAV.test.ts[2m > [22mVNAV Climb Logic[2m > [22mshould handle AT constraint as BELOW logic in climb[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/VNAV.test.ts[2m > [22mVNAV Climb Logic[2m > [22mshould respect altitude constraint even if previous leg was unconstrained[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/VNAV.test.ts[2m > [22mVNAV Climb Logic[2m > [22mshould unsafe climb if Safety Logic is missing (Demonstration)[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/VNAV.test.ts[2m > [22mVNAV Climb Logic[2m > [22mshould restrict descent below 10000ft if speed is > 250kt[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Physics.test.ts[2m > [22mPhysics Integration in Aircraft[2m > [22mLateral Physics (Turn Dynamics)[2m > [22mshould roll to bank angle when heading change is commanded[32m 2[2mms[22m[39m
+ [32m✓[39m src/tests/Physics.test.ts[2m > [22mPhysics Integration in Aircraft[2m > [22mLateral Physics (Turn Dynamics)[2m > [22mshould turn heading based on bank angle[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Physics.test.ts[2m > [22mPhysics Integration in Aircraft[2m > [22mLateral Physics (Turn Dynamics)[2m > [22mshould turn slower at higher speed for same bank angle[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Physics.test.ts[2m > [22mPhysics Integration in Aircraft[2m > [22mVertical Physics (Climb Performance)[2m > [22mshould calculate positive climb rate when commanded[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Physics.test.ts[2m > [22mPhysics Integration in Aircraft[2m > [22mVertical Physics (Climb Performance)[2m > [22mshould climb slower at high altitude (Performance Model)[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/Physics.test.ts[2m > [22mPhysics Integration in Aircraft[2m > [22mVertical Physics (Climb Performance)[2m > [22mshould descend when target is lower[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/AircraftModel.test.ts[2m > [22mAircraft Model[2m > [22mPhysics & Movement[2m > [22mshould move according to speed and heading[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/AircraftModel.test.ts[2m > [22mAircraft Model[2m > [22mPhysics & Movement[2m > [22mshould turn towards target heading[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/AircraftModel.test.ts[2m > [22mAircraft Model[2m > [22mPhysics & Movement[2m > [22mshould wrap heading around 360[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/AircraftModel.test.ts[2m > [22mAircraft Model[2m > [22mPhysics & Movement[2m > [22mshould climb towards target altitude[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/AircraftModel.test.ts[2m > [22mAircraft Model[2m > [22mPhysics & Movement[2m > [22mshould accelerate towards target speed[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/AircraftModel.test.ts[2m > [22mAircraft Model[2m > [22mSeparation Logic[2m > [22mshould return NORMAL when well separated[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/AircraftModel.test.ts[2m > [22mAircraft Model[2m > [22mSeparation Logic[2m > [22mshould return WARNING when < 8NM horizontally[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/AircraftModel.test.ts[2m > [22mAircraft Model[2m > [22mSeparation Logic[2m > [22mshould return VIOLATION when < 5NM horizontally[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/AircraftModel.test.ts[2m > [22mAircraft Model[2m > [22mSeparation Logic[2m > [22mshould return NORMAL if vertical separation exists[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/AircraftModel.test.ts[2m > [22mAircraft Model[2m > [22mNavigation[2m > [22mshould advance flight plan points[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/AutopilotPID.test.ts[2m > [22mAutopilot PID Control[2m > [22mshould generate bank command when heading error exists[32m 2[2mms[22m[39m
+ [32m✓[39m src/tests/AutopilotPID.test.ts[2m > [22mAutopilot PID Control[2m > [22mshould reduce bank command as error reduces[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/AutopilotPID.test.ts[2m > [22mAutopilot PID Control[2m > [22mshould converge to target heading[32m 2[2mms[22m[39m
+ [32m✓[39m src/tests/VerticalProfile.test.ts[2m > [22mVertical Profile and Speed Scheduling[2m > [22mshould shift target speed at high altitude (Mach Scheduling)[32m 2[2mms[22m[39m
+ [32m✓[39m src/tests/VerticalProfile.test.ts[2m > [22mVertical Profile and Speed Scheduling[2m > [22mshould follow VS commands from Autopilot[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/VerticalProfile.test.ts[2m > [22mVertical Profile and Speed Scheduling[2m > [22mshould respect max climb rate performance limit[32m 0[2mms[22m[39m
+[90mstdout[2m | src/tests/GS.test.ts[2m > [22m[2mGlide Slope (GS) Logic[2m > [22m[2mshould capture ILS and enter GS mode
+[22m[39mJAL123 captured ILS 34R
+
+[90mstdout[2m | src/tests/CommandSystem_CC.test.ts[2m > [22m[2mCommandSystem - CONTACT CENTER[2m > [22m[2mshould fail handoff if altitude < 18000 AND distance < 30NM
+[22m[39mJAL123 Unable contact center (Dist: 14.1NM, Alt: 5000ft)
+
+[90mstdout[2m | src/tests/GS.test.ts[2m > [22m[2mGlide Slope (GS) Logic[2m > [22m[2mshould perform GS calculation in update loop
+[22m[39mJAL123 captured ILS 34R
+JAL123 Lateral Mode: HDG -> LOC
+JAL123 Vertical Mode: ALT -> GS
+
+[90mstdout[2m | src/tests/GS.test.ts[2m > [22m[2mGlide Slope (GS) Logic[2m > [22m[2mshould maintain altitude if below glide slope
+[22m[39mJAL123 captured ILS 34R
+JAL123 Lateral Mode: HDG -> LOC
+JAL123 Vertical Mode: ALT -> GS
+
+[90mstdout[2m | src/tests/GS.test.ts[2m > [22m[2mGlide Slope (GS) Logic[2m > [22m[2mshould descend when intercepting glide slope
+[22m[39mJAL123 captured ILS 34R
+JAL123 Lateral Mode: HDG -> LOC
+JAL123 Vertical Mode: ALT -> GS
+
+[90mstdout[2m | src/tests/CommandSystem.test.ts[2m > [22m[2mCommandSystem[2m > [22m[2mshould clear flight plan when heading is assigned
+[22m[39mnewPlan: [{"type":"DF","waypoint":"TEST_WP"}]
+JAL123 Vertical Mode: ALT -> VNAV
+JAL123 Speed Mode: MANUAL -> FMS
+JAL123 MCP Heading: 0 -> 90
+
+ [32m✓[39m src/tests/GS.test.ts[2m > [22mGlide Slope (GS) Logic[2m > [22mshould capture ILS and enter GS mode[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/GS.test.ts[2m > [22mGlide Slope (GS) Logic[2m > [22mshould perform GS calculation in update loop[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/GS.test.ts[2m > [22mGlide Slope (GS) Logic[2m > [22mshould maintain altitude if below glide slope[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/GS.test.ts[2m > [22mGlide Slope (GS) Logic[2m > [22mshould descend when intercepting glide slope[32m 0[2mms[22m[39m
+[90mstdout[2m | src/tests/CommandSystem.test.ts[2m > [22m[2mCommandSystem[2m > [22m[2mshould NOT clear flight plan for Speed/Altitude commands
+[22m[39mJAL123 MCP Speed: 250 -> 200
+
+ [32m✓[39m src/tests/CommandSystem_CC.test.ts[2m > [22mCommandSystem - CONTACT CENTER[2m > [22mshould fail handoff if altitude < 18000 AND distance < 30NM[32m 2[2mms[22m[39m
+ [32m✓[39m src/tests/CommandSystem_CC.test.ts[2m > [22mCommandSystem - CONTACT CENTER[2m > [22mshould succeed handoff if altitude >= 18000[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/CommandSystem_CC.test.ts[2m > [22mCommandSystem - CONTACT CENTER[2m > [22mshould succeed handoff if distance >= 30NM[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/CommandSystem_CC.test.ts[2m > [22mCommandSystem - CONTACT CENTER[2m > [22mshould fail if aircraft is not a departure[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/CommandSystem.test.ts[2m > [22mCommandSystem[2m > [22mshould clear flight plan when heading is assigned[32m 3[2mms[22m[39m
+ [32m✓[39m src/tests/CommandSystem.test.ts[2m > [22mCommandSystem[2m > [22mshould NOT clear flight plan for Speed/Altitude commands[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/CommandSystem.test.ts[2m > [22mCommandSystem[2m > [22m10000ft / 250kt Restrictions[2m > [22mshould reject descent below 10000ft if speed > 250kt[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/CommandSystem.test.ts[2m > [22mCommandSystem[2m > [22m10000ft / 250kt Restrictions[2m > [22mshould reject accelerating > 250kt if altitude < 10000ft[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/CommandSystem.test.ts[2m > [22mCommandSystem[2m > [22m10000ft / 250kt Restrictions[2m > [22mshould accept descent below 10000ft if simultaneously commanding speed <= 250kt[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/CommandSystem.test.ts[2m > [22mCommandSystem[2m > [22m10000ft / 250kt Restrictions[2m > [22mshould accept descent below 10000ft if current speed already <= 250kt[32m 0[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m13 passed[39m[22m[90m (13)[39m
+[2m      Tests [22m [1m[32m72 passed[39m[22m[90m (72)[39m
+[2m   Start at [22m 15:49:59
+[2m   Duration [22m 205ms[2m (transform 759ms, setup 0ms, import 950ms, tests 45ms, environment 1ms)[22m
+

@@ -217,10 +217,13 @@ export class AircraftPerformance {
     const rho = this.getDensity(h);
     const rho0 = 1.225;
 
-    // Thrust approx proportional to (rho/rho0)^1.0 for high bypass (More realistic than 0.7)
-    // Adjusted from 0.92 to 0.60 to yield realistic ~4.5 min climb to 10000 ft for B777
+    // Thrust approx proportional to (rho/rho0)^1.0 for high bypass
     const thrustFactor = Math.pow(rho / rho0, 1.0);
-    const climbThrustRating = 0.6;
+
+    // Altitude-based thrust rating to simulate takeoff vs climb thrust
+    // Takeoff Thrust: MAX (~0.95) until 1500ft
+    // Climb Thrust: Derated (~0.70) above 1500ft
+    const climbThrustRating = h < 1500 ? 0.95 : 0.7;
 
     // Total thrust = engines * thrust_per_engine
     return (

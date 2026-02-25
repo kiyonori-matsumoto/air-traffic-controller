@@ -348,10 +348,7 @@ export class Autopilot {
 
       const speedOfSound = perf.getSpeedOfSound(alt);
       const targetTAS = (targetMach * speedOfSound) / 0.514444; // Knots
-      targetCas = targetTAS; // Set as target TAS for now (as Aircraft uses TAS)
-
-      // Polish: Aircraft.ts should probably be updated to use CAS/TAS properly.
-      // For now, treat targetSpeed as commanded TAS.
+      targetCas = perf.TAS_to_CAS(targetTAS, alt); // Convert to indicated airspeed
     } else if (alt > 10000) {
       targetCas = this.aircraft.cruiseSpeed;
     } else {
