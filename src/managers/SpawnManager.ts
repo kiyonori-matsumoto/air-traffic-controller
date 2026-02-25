@@ -1,5 +1,6 @@
 import { TrafficManager } from "./TrafficManager";
-
+import { tutorialScenario } from "../data/scenarios/tutorial";
+import { stage1Scenario } from "../data/scenarios/stage1";
 export interface SpawnEvent {
   time: number; // Seconds since game start
   flightId: string;
@@ -20,8 +21,18 @@ export interface SpawnEvent {
   star?: string; // STAR Name (Arrival)
 }
 
+export interface Scenario {
+  events: SpawnEvent[];
+  clearCondition: {
+    score?: number;
+    safeLandings?: number;
+    successfulHandoffs?: number;
+  };
+}
+
 export class SpawnManager {
   private spawnQueue: SpawnEvent[] = [];
+  private currentClearCondition: Scenario["clearCondition"] | null = null;
   private gameTime: number = 0;
   private trafficManager: TrafficManager;
   private mode: "SCENARIO" | "RANDOM" = "RANDOM";
@@ -58,11 +69,11 @@ export class SpawnManager {
     this.trafficManager = trafficManager;
   }
 
-  public setMode(mode: "SCENARIO" | "RANDOM") {
+  public setMode(mode: "SCENARIO" | "RANDOM", scenarioId?: string) {
     this.mode = mode;
     if (mode === "SCENARIO") {
       this.spawnQueue = []; // Clear current queue or keep it?
-      this.loadDefaultScenario();
+      this.loadScenario(scenarioId || "STAGE_1");
     }
   }
 
@@ -190,178 +201,49 @@ export class SpawnManager {
     this.spawnQueue.sort((a, b) => a.time - b.time);
   }
 
-  private loadDefaultScenario() {
-    const events: SpawnEvent[] = [
-      // --- INITIAL TRAFFIC (Time 0) ---
-      // Distant Arrival (North)
-      {
-        time: 0,
-        flightId: "JAL501",
-        model: "B777",
-        type: "ARRIVAL",
-        entryPoint: "NORTH_ARRIVAL",
-        origin: "RJCC",
-        destination: "RJTT",
-        altitude: 13000,
-        speed: 280,
-        startDistance: 60,
-        initialState: "RADAR_CONTACT",
-      },
-      // Mid-range Arrival (South)
-      {
-        time: 0,
-        flightId: "ANA240",
-        model: "B787",
-        type: "ARRIVAL",
-        entryPoint: "SOUTH_ARRIVAL",
-        origin: "RJFF",
-        destination: "RJTT",
-        altitude: 9000,
-        speed: 250,
-        startDistance: 40,
-        initialState: "RADAR_CONTACT", // < 50NM -> Owned (White)
-      },
-      // Close-range Arrival (East)
-      {
-        time: 0,
-        flightId: "SKY101",
-        model: "B737",
-        type: "ARRIVAL",
-        entryPoint: "EAST_ARRIVAL",
-        origin: "RJAA",
-        destination: "RJTT",
-        altitude: 6000,
-        speed: 220,
-        star: "AROSA2C",
-        startDistance: 35,
-        initialState: "RADAR_CONTACT", // < 50NM -> Owned (White)
-      },
-      // Departure (SFJ70) - Between LOCUP and TAURA
-      {
-        time: 0,
-        flightId: "SFJ70",
-        model: "A320",
-        type: "DEPARTURE",
-        entryPoint: "RWY34R",
-        origin: "RJTT",
-        destination: "RJFF",
-        altitude: 6000,
-        speed: 240,
-        x: 2.0, // calculated
-        y: -10.0, // calculated
-        heading: 225,
-        initialState: "RADAR_CONTACT",
-        initialWaypoint: "TAURA",
-      },
-      // Departure rolling
-      {
-        time: 1,
-        flightId: "ADO30",
-        model: "B737",
-        type: "DEPARTURE",
-        entryPoint: "RWY34R",
-        origin: "RJTT",
-        destination: "RJCC",
-        altitude: 0,
-        speed: 170,
-        startDistance: 0,
-        initialState: "RADAR_CONTACT", // Departure -> Owned
-        sid: "LAXAS4_34R",
-      },
+  private loadScenario(scenarioId: string) {
+    let scenario: Scenario | null = null;
 
-      // // --- SCHEDULED TRAFFIC ---
-      {
-        time: 15,
-        flightId: "APJ301",
-        model: "A320",
-        type: "ARRIVAL",
-        entryPoint: "SOUTH_ARRIVAL",
-        origin: "ROAH",
-        destination: "RJTT",
-        altitude: 12000,
-        speed: 300,
-      },
-      {
-        time: 30,
-        flightId: "JJP550",
-        model: "A320",
-        type: "ARRIVAL",
-        entryPoint: "NORTH_ARRIVAL",
-        origin: "RJGG",
-        destination: "RJTT",
-        altitude: 11000,
-        speed: 290,
-      },
-      {
-        time: 45,
-        flightId: "ANA109",
-        model: "B777",
-        type: "ARRIVAL",
-        entryPoint: "EAST_ARRIVAL",
-        origin: "KLAX",
-        destination: "RJTT",
-        altitude: 13000,
-        speed: 300,
-        star: "AROSA2C",
-      },
-      {
-        time: 75,
-        flightId: "SKY305",
-        model: "B737",
-        type: "ARRIVAL",
-        entryPoint: "NORTH_ARRIVAL",
-        origin: "RJCC",
-        destination: "RJTT",
-        altitude: 10000,
-        speed: 270,
-      },
-      {
-        time: 90,
-        flightId: "JAL901",
-        model: "A350",
-        type: "ARRIVAL",
-        entryPoint: "SOUTH_ARRIVAL",
-        origin: "RJFK",
-        destination: "RJTT",
-        altitude: 13000,
-        speed: 280,
-      },
-      {
-        time: 120,
-        flightId: "JAL111",
-        model: "B767",
-        type: "ARRIVAL",
-        entryPoint: "EAST_ARRIVAL",
-        origin: "PHNL",
-        destination: "RJTT",
-        altitude: 11000,
-        speed: 290,
-        star: "AROSA2C",
-      },
-      {
-        time: 135,
-        flightId: "SJO202",
-        model: "B737",
-        type: "DEPARTURE",
-        entryPoint: "RWY34R",
-        origin: "RJTT",
-        destination: "ZSPD",
-        altitude: 0,
-        speed: 150,
-      },
-      {
-        time: 165,
-        flightId: "ANA221",
-        model: "B787",
-        type: "ARRIVAL",
-        entryPoint: "SOUTH_ARRIVAL",
-        origin: "ROAH",
-        destination: "RJTT",
-        altitude: 12000,
-        speed: 300,
-      },
-    ];
-    this.spawnQueue = events;
-    this.spawnQueue.sort((a, b) => a.time - b.time);
+    if (scenarioId === "TUTORIAL") {
+      scenario = tutorialScenario;
+    } else if (scenarioId === "STAGE_1") {
+      scenario = stage1Scenario;
+    }
+
+    if (scenario) {
+      // Deep copy to prevent modifying the original imported arrays
+      this.spawnQueue = JSON.parse(JSON.stringify(scenario.events));
+      this.spawnQueue.sort((a, b) => a.time - b.time);
+      this.currentClearCondition = scenario.clearCondition;
+    }
+  }
+
+  public checkClearCondition(
+    scoreManager: import("./ScoreManager").ScoreManager,
+  ): boolean {
+    if (!this.currentClearCondition) return false;
+
+    const stats = scoreManager.getStats();
+
+    if (
+      this.currentClearCondition.score !== undefined &&
+      stats.score < this.currentClearCondition.score
+    ) {
+      return false;
+    }
+    if (
+      this.currentClearCondition.safeLandings !== undefined &&
+      stats.safeLandings < this.currentClearCondition.safeLandings
+    ) {
+      return false;
+    }
+    if (
+      this.currentClearCondition.successfulHandoffs !== undefined &&
+      stats.successfulHandoffs < this.currentClearCondition.successfulHandoffs
+    ) {
+      return false;
+    }
+
+    return true; // All defined conditions met
   }
 }

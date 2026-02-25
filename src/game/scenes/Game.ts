@@ -41,9 +41,16 @@ export class Game extends Scene {
 
   private timeScale: number = 1;
   private uiManager: UIManager;
+  private scenarioId: string = "STAGE_1"; // Default
 
   constructor() {
     super("Game");
+  }
+
+  init(data: { scenarioId?: string }) {
+    if (data && data.scenarioId) {
+      this.scenarioId = data.scenarioId;
+    }
   }
 
   private audioManager: AudioManager;
@@ -101,7 +108,7 @@ export class Game extends Scene {
 
     // this.trafficManager.setRotationCorrection(this.magVarCorrection);
     this.spawnManager = new SpawnManager(this.trafficManager);
-    this.spawnManager.setMode("SCENARIO");
+    this.spawnManager.setMode("SCENARIO", this.scenarioId);
     this.commandSystem = new CommandSystem(this.airport);
 
     // Radar Initialization
@@ -433,9 +440,7 @@ export class Game extends Scene {
   }
 
   private checkScenarioClear() {
-    // Simple Goal: Score >= 500
-    // In future, SpawnManager could hold the goal (e.g. number of planes handled)
-    if (this.scoreManager.getScore() >= 500) {
+    if (this.spawnManager.checkClearCondition(this.scoreManager)) {
       this.scene.start("ScoreScene", {
         score: this.scoreManager.getScore(),
         stats: this.scoreManager.getStats(),

@@ -1,41 +1,40 @@
-export interface PerformanceData {
+export interface AircraftData {
   id: string;
   name: string;
   category: "LIGHT" | "MEDIUM" | "HEAVY" | "SUPER";
   weights: {
-    oew: number; // Operating Empty Weight (kg)
-    mtow: number; // Max Takeoff Weight (kg)
-    mlw: number; // Max Landing Weight (kg)
-    mzfw: number; // Max Zero Fuel Weight (kg)
+    oew: number;
+    mtow: number;
+    mlw: number;
+    mzfw: number;
   };
   aerodynamics: {
-    wing_area: number; // m^2
-    cd0_clean: number; // Parasite drag coefficient (clean)
-    cd2_clean: number; // Induced drag factor (clean) k * CL^2
-    // Simplified flaps/gear drag for now
+    wing_area: number;
+    cd0_clean: number;
+    cd2_clean: number;
     drag_flaps_full: number;
     drag_gear: number;
   };
   engines: {
     count: number;
-    max_thrust_sl: number; // Max Thrust Sea Level (N) per engine
-    bypass_ratio: number; // Used for altitude lapse rate estimate
+    max_thrust_sl: number;
+    bypass_ratio: number;
   };
   limits: {
-    max_speed_vmo: number; // knots
+    max_speed_vmo: number;
     max_mach_mmo: number;
-    max_altitude: number; // ft
-    vmin_clean: number; // Stall speed clean (approx)
-    vmin_landing: number; // Stall speed landing config
+    max_altitude: number;
+    vmin_clean: number;
+    vmin_landing: number;
   };
   dimensions: {
-    length: number; // m
-    span: number; // m
+    length: number;
+    span: number;
   };
 }
 
 // Data from BADA / Public sources approximations
-const B737_800: PerformanceData = {
+const B737_800: AircraftData = {
   id: "B737-800",
   name: "Boeing 737-800",
   category: "MEDIUM",
@@ -70,7 +69,7 @@ const B737_800: PerformanceData = {
   },
 };
 
-const B777_300ER: PerformanceData = {
+const B777_300ER: AircraftData = {
   id: "B777-300ER",
   name: "Boeing 777-300ER",
   category: "HEAVY",
@@ -105,7 +104,7 @@ const B777_300ER: PerformanceData = {
   },
 };
 
-const A320_200: PerformanceData = {
+const A320_200: AircraftData = {
   id: "A320-200",
   name: "Airbus A320-200",
   category: "MEDIUM",
@@ -140,7 +139,7 @@ const A320_200: PerformanceData = {
   },
 };
 
-export const PerformanceDatabase: Record<string, PerformanceData> = {
+export const PerformanceDatabase: Record<string, AircraftData> = {
   B737: B737_800,
   B738: B737_800,
   B777: B777_300ER,
@@ -149,7 +148,7 @@ export const PerformanceDatabase: Record<string, PerformanceData> = {
 };
 
 export class AircraftPerformance {
-  private data: PerformanceData;
+  private data: AircraftData;
 
   constructor(modelId: string) {
     this.data = PerformanceDatabase[modelId] || PerformanceDatabase["B737"]; // Default
@@ -157,7 +156,7 @@ export class AircraftPerformance {
 
   // Get Air Density (kg/m^3) approx based on ISA
   // h: altitude in feet
-  private getDensity(h: number): number {
+  getDensity(h: number): number {
     const rho0 = 1.225; // Sea level density
     // Troposphere approx: rho = rho0 * (1 - 2.2558e-5 * H)^4.256
     // H in meters. 1 ft = 0.3048 m
@@ -170,11 +169,11 @@ export class AircraftPerformance {
       const H_trop = 11000;
       return rho_trop * Math.exp(-(9.80665 * (H - H_trop)) / (287.05 * 216.65));
     }
+
     const T0 = 288.15;
     const L = 0.0065; // Lapse rate K/m
     const T = T0 - L * H;
     if (T <= 0) return 0; // space?
-
     return rho0 * Math.pow(1 - (L * H) / T0, 4.256);
   }
 
@@ -183,7 +182,7 @@ export class AircraftPerformance {
   // h: Altitude in feet
   // mass: Current mass in kg
   // config: 'CLEAN' | 'FLAPS' | 'GEAR'
-  public getDrag(
+  getDrag(
     vKnots: number,
     h: number,
     mass: number,
@@ -196,6 +195,7 @@ export class AircraftPerformance {
     // Lift Coefficient CL = 2 * m * g / (rho * v^2 * S)
     const g = 9.80665;
     const q = 0.5 * rho * v * v; // Dynamic pressure
+
     if (q < 1) return 0; // Too slow
 
     const CL = (mass * g) / (q * S);
@@ -213,17 +213,14 @@ export class AircraftPerformance {
 
   // Calculate Max Thrust (Newtons) at altitude
   // Simple High-Bypass Turbofan model: Thrust drops with density/altitude
-  public getMaxThrust(h: number, _vKnots: number): number {
+  getMaxThrust(h: number, _vKnots: number): number {
     const rho = this.getDensity(h);
     const rho0 = 1.225;
 
-    // Thrust approx proportional to (rho/rho0)^1.0 for high bypass
+    // Thrust approx proportional to (rho/rho0)^1.0 for high bypass (More realistic than 0.7)
+    // Also using ~90% of max takeoff thrust as "Max Continuous/Climb Thrust"
     const thrustFactor = Math.pow(rho / rho0, 1.0);
-
-    // Altitude-based thrust rating to simulate takeoff vs climb thrust
-    // Takeoff Thrust: MAX (~0.95) until 1500ft
-    // Climb Thrust: Derated (~0.70) above 1500ft
-    const climbThrustRating = h < 1500 ? 0.95 : 0.7;
+    const climbThrustRating = 0.92;
 
     // Total thrust = engines * thrust_per_engine
     return (
@@ -235,7 +232,7 @@ export class AircraftPerformance {
   }
 
   // Get max climb rate (fpm) at max climb thrust
-  public getMaxClimbRate(vKnots: number, h: number, mass: number): number {
+  getMaxClimbRate(vKnots: number, h: number, mass: number): number {
     const D = this.getDrag(vKnots, h, mass);
     const T = this.getMaxThrust(h, vKnots);
     const v = vKnots * 0.514444; // m/s
@@ -253,12 +250,11 @@ export class AircraftPerformance {
     const f_acc = h < 36089 ? 0.82 : 0.95;
 
     const rc_ms = rc_ms_pot * f_acc;
-
     return rc_ms * 196.85; // Convert m/s -> fpm
   }
 
   // Speed of Sound (m/s) based on Temperature at altitude
-  public getSpeedOfSound(h: number): number {
+  getSpeedOfSound(h: number): number {
     const H = h * 0.3048;
     const T0 = 288.15;
     const L = 0.0065;
@@ -270,27 +266,27 @@ export class AircraftPerformance {
 
   // TAS to CAS conversion (Simplified)
   // CAS approx = TAS * sqrt(rho / rho0)
-  public TAS_to_CAS(tas: number, h: number): number {
+  TAS_to_CAS(tas: number, h: number): number {
     const rho = this.getDensity(h);
     const rho0 = 1.225;
     return tas * Math.sqrt(rho / rho0);
   }
 
   // CAS to TAS conversion
-  public CAS_to_TAS(cas: number, h: number): number {
+  CAS_to_TAS(cas: number, h: number): number {
     const rho = this.getDensity(h);
     const rho0 = 1.225;
     return cas / Math.sqrt(rho / rho0);
   }
 
   // TAS to Mach
-  public TAS_to_Mach(tasKnots: number, h: number): number {
+  TAS_to_Mach(tasKnots: number, h: number): number {
     const v = tasKnots * 0.514444; // m/s
     const a = this.getSpeedOfSound(h);
     return v / a;
   }
 
-  public getData(): PerformanceData {
+  getData(): AircraftData {
     return this.data;
   }
 }
