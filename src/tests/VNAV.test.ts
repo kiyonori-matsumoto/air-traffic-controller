@@ -167,7 +167,33 @@ describe("VNAV Climb Logic", () => {
 
     // If Safety Logic exists, target should be 5000.
     // If User implementation (static plan + no safety checks), target is 8000.
-    // We expect 8000 as user disabled safety logic.
     expect(aircraft.targetAltitude).toBe(8000);
+  });
+
+  it("should restrict descent below 10000ft if speed is > 250kt", () => {
+    // Setup: cruising at 12000ft, speed 280, wanting to descend to 4000ft via VNAV
+    aircraft.altitude = 12000;
+    aircraft.speed = 280;
+    aircraft.autopilot.mcpAltitude = 4000;
+
+    const leg: FlightLeg = {
+      type: "TF",
+      waypoint: "WPT1",
+      altConstraint: 4000,
+      zConstraint: "AT",
+    };
+    aircraft.autopilot.activateFlightPlan([leg], "DESCENT");
+
+    aircraft.autopilot.update(1);
+
+    // Speed is > 250kt, target should be capped at 10000ft despite lower MCP and leg constraint
+    expect(aircraft.targetAltitude).toBe(10000);
+
+    // Simulate speed dropping to 240kt
+    aircraft.speed = 240;
+    aircraft.autopilot.update(1);
+
+    // Restriction is lifted, should resume descent to 4000ft
+    expect(aircraft.targetAltitude).toBe(4000);
   });
 });

@@ -41,10 +41,46 @@ export class CommandSystem {
       readback: [],
     };
 
+    // Pre-parse altitude and speed to check for 10000ft/250kt restrictions
+    const altMatch = command.match(/(?:ALTITUDE|MAINTAIN|A)\s*(\d+)/);
+    const flMatch = command.match(/FL(\d{2,3})/);
+    let commandedAlt: number | undefined;
+    if (altMatch) {
+      commandedAlt = parseInt(altMatch[1]);
+    } else if (flMatch) {
+      commandedAlt = parseInt(flMatch[1]) * 100;
+    }
+
+    const speedMatch = command.match(/(?:SPEED|S)\s*(\d{2,3})/);
+    let commandedSpeed: number | undefined;
+    if (speedMatch) {
+      commandedSpeed = parseInt(speedMatch[1]);
+    }
+
+    // Determine the resulting state after commands
+    const resultingAlt =
+      commandedAlt !== undefined ? commandedAlt : ac.altitude;
+    const resultingSpeed =
+      commandedSpeed !== undefined ? commandedSpeed : ac.speed;
+
+    // Check restriction: Cannot be below 10,000ft with speed > 250kt if we are commanding a change
+    // We only reject if the new commanded state violates the rule.
+    // If they are already violating it but command something that fixes it (e.g. S250), it's fine.
+    // If they command an invalid state, reject it entirely.
+    if (
+      (commandedAlt !== undefined || commandedSpeed !== undefined) &&
+      resultingAlt < 10000 &&
+      resultingSpeed > 250
+    ) {
+      result.atcLog = `${ac.callsign} UNABLE, SPEED MUST BE 250 OR LESS BELOW 10000.`;
+      result.handled = false;
+      return result;
+    }
+
     // Run independent command handlers (chainable)
     this.handleHeading(command, ac, result, buffers);
-    this.handleSpeed(command, ac, result, buffers);
-    this.handleAltitude(command, ac, result, buffers);
+    this.handleSpeed(command, ac, result, buffers, commandedSpeed);
+    this.handleAltitude(command, ac, result, buffers, commandedAlt);
 
     // Run exclusive command group (Route / Approach / Direct)
     // Only one of these should apply at a time
@@ -112,14 +148,14 @@ export class CommandSystem {
     ac: Aircraft,
     result: CommandResult,
     buffers: LogBuffers,
+    parsedSpeed?: number,
   ): boolean {
-    const speedMatch = command.match(/(?:SPEED|S)\s*(\d{2,3})/);
-    if (speedMatch) {
-      const val = parseInt(speedMatch[1]);
+    if (parsedSpeed !== undefined) {
+      const val = parsedSpeed;
       result.pendingUpdates.push(() => {
         ac.autopilot.setSpeed(val);
       });
-      const phrase = `reduce speed to ${val}`;
+      const phrase = `reduce speed to ${val}`; // Or maintain speed, etc.
       this.addLogs(buffers, phrase, phrase, phrase);
       result.handled = true;
       return true;
@@ -132,28 +168,25 @@ export class CommandSystem {
     ac: Aircraft,
     result: CommandResult,
     buffers: LogBuffers,
+    parsedAlt?: number,
   ): boolean {
-    const altMatch = command.match(/(?:ALTITUDE|MAINTAIN|A)\s*(\d+)/);
-    if (altMatch) {
-      const val = parseInt(altMatch[1]);
+    if (parsedAlt !== undefined) {
+      const val = parsedAlt;
       result.pendingUpdates.push(() => {
         ac.autopilot.setAltitude(val);
       });
-      const phrase = `maintain ${val}`;
-      const voicePhrase = `climb maintain ${val}`;
-      this.addLogs(buffers, phrase, voicePhrase, phrase);
-      result.handled = true;
-      return true;
-    }
 
-    const flMatch = command.match(/FL(\d{2,3})/);
-    if (flMatch) {
-      const val = parseInt(flMatch[1]) * 100;
-      result.pendingUpdates.push(() => {
-        ac.autopilot.setAltitude(val);
-      });
-      const phrase = `maintain flight level ${flMatch[1]}`;
-      const voicePhrase = `climb maintain flight level ${flMatch[1]}`;
+      let phrase, voicePhrase;
+      if (command.match(/FL(\d{2,3})/)) {
+        const flMatch = command.match(/FL(\d{2,3})/);
+        const fl = flMatch ? flMatch[1] : (val / 100).toString();
+        phrase = `maintain flight level ${fl}`;
+        voicePhrase = `climb maintain flight level ${fl}`;
+      } else {
+        phrase = `maintain ${val}`;
+        voicePhrase = `climb maintain ${val}`;
+      }
+
       this.addLogs(buffers, phrase, voicePhrase, phrase);
       result.handled = true;
       return true;

@@ -65,8 +65,9 @@ describe("CommandSystem", () => {
   });
 
   it("should NOT clear flight plan for Speed/Altitude commands", () => {
-    // 1. Setup
-    aircraft.autopilot.flightPlan = [{ type: "TF", waypoint: "WP1" }];
+    aircraft.autopilot.flightPlan = [
+      { type: "TF", waypoint: "WP1", altitude: 10000, speed: 250 },
+    ];
     const cmd = "SPEED 200";
 
     // 2. Execute
@@ -79,5 +80,58 @@ describe("CommandSystem", () => {
     // 4. Assertions
     expect(aircraft.targetSpeed).toBe(200);
     expect(aircraft.autopilot.flightPlan.length).toBe(1);
+  });
+
+  describe("10000ft / 250kt Restrictions", () => {
+    it("should reject descent below 10000ft if speed > 250kt", () => {
+      aircraft.altitude = 12000;
+      aircraft.speed = 280;
+
+      const result = commandSystem.handle("A9000", aircraft);
+
+      expect(result.handled).toBe(false);
+      expect(result.atcLog).toContain("UNABLE");
+      expect(result.pendingUpdates.length).toBe(0);
+    });
+
+    it("should reject accelerating > 250kt if altitude < 10000ft", () => {
+      aircraft.altitude = 8000;
+      aircraft.speed = 240;
+
+      const result = commandSystem.handle("S280", aircraft);
+
+      expect(result.handled).toBe(false);
+      expect(result.atcLog).toContain("UNABLE");
+      expect(result.pendingUpdates.length).toBe(0);
+    });
+
+    it("should accept descent below 10000ft if simultaneously commanding speed <= 250kt", () => {
+      aircraft.altitude = 12000;
+      aircraft.speed = 280;
+
+      const result = commandSystem.handle("A9000 S240", aircraft);
+
+      expect(result.handled).toBe(true);
+      expect(result.atcLog).toBeTypeOf("string");
+      expect(result.pendingUpdates.length).toBe(2); // One for Alt, one for Speed
+
+      result.pendingUpdates.forEach((fn) => fn());
+      expect(aircraft.autopilot.mcpAltitude).toBe(9000);
+      expect(aircraft.autopilot.mcpSpeed).toBe(240);
+    });
+
+    it("should accept descent below 10000ft if current speed already <= 250kt", () => {
+      aircraft.altitude = 12000;
+      aircraft.speed = 240;
+
+      const result = commandSystem.handle("A9000", aircraft);
+
+      expect(result.handled).toBe(true);
+      expect(result.atcLog).toBeTypeOf("string");
+      expect(result.pendingUpdates.length).toBe(1);
+
+      result.pendingUpdates.forEach((fn) => fn());
+      expect(aircraft.autopilot.mcpAltitude).toBe(9000);
+    });
   });
 });

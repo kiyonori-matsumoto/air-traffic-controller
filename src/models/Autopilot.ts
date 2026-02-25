@@ -290,6 +290,16 @@ export class Autopilot {
       targetAlt = this.activeLeg?.altitude ?? this.mcpAltitude;
     }
 
+    // 10000ft / 250kt Restriction: Cannot descend below 10,000ft if speed > 250kt
+    if (targetAlt < 10000 && this.aircraft.speed > 250) {
+      if (this.aircraft.altitude >= 9900) {
+        targetAlt = 10000;
+      } else {
+        // If already well below 10,000ft (e.g. spawned there), hold current altitude to bleed speed instead of climbing
+        targetAlt = Math.max(targetAlt, this.aircraft.altitude);
+      }
+    }
+
     this.aircraft.targetAltitude = targetAlt;
 
     // PID Control for Vertical Speed
