@@ -103,7 +103,8 @@ export class Game extends Scene {
       this.pixelsPerNm,
       (ac) => this.selectAircraft(ac),
       this.uiManager,
-      this.scoreManager, // Pass to TrafficManager
+      this.scoreManager,
+      (ac) => this.handleAircraftSpawn(ac),
     );
 
     // this.trafficManager.setRotationCorrection(this.magVarCorrection);
@@ -398,6 +399,54 @@ export class Game extends Scene {
     this.time.delayedCall(delay, () => {
       this.addLog(msg, "pilot");
       this.audioManager.speak(msg, "PILOT", ac, onValidReadback);
+    });
+  }
+
+  private handleAircraftSpawn(ac: Aircraft) {
+    // Only arrivals need to make initial contact with approach
+    if (ac.origin === "RJTT") return; // Departure
+
+    // If the aircraft is already under our control (e.g., spawned at scenario start)
+    // skip the initial contact sequence.
+    if (ac.ownership === "OWNED") return;
+
+    // Delay the initial contact to simulate pilot switching frequencies
+    const delayMs = 3000 + Math.random() * 2000; // 3 - 5 seconds
+
+    this.time.delayedCall(delayMs, () => {
+      if (!this.trafficManager.getAircraftByCallsign(ac.callsign)) {
+        // Aircraft might have been removed already
+        return;
+      }
+
+      // Format altitude nicely
+      const currentAlt = Math.floor(ac.altitude / 100) * 100;
+      let altStr = currentAlt.toString();
+      if (currentAlt >= 18000) {
+        altStr = `Flight Level ${Math.floor(currentAlt / 100)}`;
+      }
+
+      const targetAlt = Math.floor(ac.targetAltitude / 100) * 100;
+      let targetAltStr = targetAlt.toString();
+      if (targetAlt >= 18000) {
+        targetAltStr = `Flight Level ${Math.floor(targetAlt / 100)}`;
+      }
+
+      const msg = `Tokyo approach, ${ac.callsign}, leaving ${altStr} for ${targetAltStr}, information juliett.`;
+
+      this.addLog(msg, "pilot");
+      this.audioManager.speak(msg, "PILOT", ac, () => {
+        // Automatically accept the handoff and establish radar contact
+        ac.ownership = "OWNED";
+
+        const atcMsg = `${ac.callsign}, Tokyo approach, radar contact.`;
+        this.addLog(atcMsg, "atc");
+        this.audioManager.speak(atcMsg, "ATC");
+
+        if (this.selectedAircraft === ac) {
+          this.uiManager.updateSidebar(ac);
+        }
+      });
     });
   }
 

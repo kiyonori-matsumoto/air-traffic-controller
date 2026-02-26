@@ -32,6 +32,7 @@ export class TrafficManager {
     private onSelectAircraft: (ac: Aircraft | null) => void,
     private uiManager: UIManager,
     private scoreManager: ScoreManager,
+    private onAircraftSpawned?: (ac: Aircraft) => void,
   ) {}
 
   private activeViolations: Set<string> = new Set();
@@ -263,6 +264,10 @@ export class TrafficManager {
     });
 
     this.uiManager.createStrip(ac);
+
+    if (this.onAircraftSpawned) {
+      this.onAircraftSpawned(ac);
+    }
   }
 
   private createAircraftContainer(ac: Aircraft): AircraftEntity {
