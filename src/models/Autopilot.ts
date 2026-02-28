@@ -56,6 +56,7 @@ export class Autopilot {
   public mcpHeading: number;
   public mcpAltitude: number;
   public mcpSpeed: number;
+  public approachArmed: boolean = false;
 
   // Flight Plan
   public flightPlan: FlightLegTarget[] = [];
@@ -386,13 +387,16 @@ export class Autopilot {
 
   public manageApproach(runways: Runway[]): boolean {
     if (this.aircraft.state === "FLYING") {
+      // Only evaluate if armed, or if explicitly in APPROACH phase (legacy compatibility)
+      if (!this.approachArmed && this.flightMode !== "APPROACH") return true;
+
       for (const rwy of runways) {
         if (
           rwy.isAligned(
             this.aircraft.x,
             this.aircraft.y,
             this.aircraft.altitude,
-            this.aircraft.heading,
+            this.mcpHeading || this.aircraft.heading,
           )
         ) {
           console.log(`${this.aircraft.callsign} captured ILS ${rwy.id}`);
@@ -445,6 +449,7 @@ export class Autopilot {
     this.flightPlan = [];
     this.activeLeg = null;
     this.aircraft.activeWaypoint = null;
+    this.approachArmed = false; // Reset armed state on new heading
     this.bankPID.reset();
   }
 
@@ -454,6 +459,7 @@ export class Autopilot {
     approachType?: string,
   ) {
     this.aircraft.activeWaypoint = null;
+    this.approachArmed = false; // Reset armed state on new plan
     this.aircraft.targetSpeed =
       phase === "CLIMB" ? 300 : phase === "DESCENT" ? 210 : 150;
     this.aircraft.targetAltitude =

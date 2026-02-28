@@ -23,58 +23,39 @@ export class Runway {
 
   /**
    * 機体が滑走路に対して適切に整列しているか（ILSキャプチャ判定）
-   * @param acX 航空機X (NM)
-   * @param acY 航空機Y (NM)
-   * @param acAlt 航空高度 (ft)
-   * @param acHeading 航空機方位 (度)
-   * @returns
    */
   public isAligned(
-    acX: number,
-    acY: number,
+    x: number,
+    y: number,
     acAlt: number,
-    acHeading: number,
+    heading: number,
   ): boolean {
-    // 1. 滑走路方位との差 (±5度以内)
-    let headingDiff = Math.abs(this.heading - acHeading);
+    const rx = this.x;
+    const ry = this.y;
+    const dx = x - rx;
+    const dy = y - ry;
+
+    const bearing = (Math.atan2(-dy, -dx) * 180) / Math.PI; // Bearing from runway to aircraft
+    const bearingDiff = Math.abs(this.heading - bearing);
+    // Allow intercepting from within a 15-degree cone of the extended centerline
+    const isApproachPath = bearingDiff < 15 || bearingDiff > 345;
+
+    let headingDiff = Math.abs(this.heading - heading);
     if (headingDiff > 180) headingDiff = 360 - headingDiff;
-    if (headingDiff > 10) return false;
 
-    // 2. 滑走路端からの相対座標計算
-    const dx = acX - this.x;
-    const dy = acY - this.y;
+    // The aircraft's heading must be within max intercept angle (35 degrees)
+    // AND it must be generally in the approach path area
+    if (!isApproachPath || headingDiff > 35) return false;
 
-    // 滑走路方位をラジアンに変換 (ATC方位は0度が北、時計回り)
-    // 数学角に変換: Math.PI/2 - rad(heading)
-
-    // 滑走路方向に沿った相対位置 (dist: 距離, side: 横ズレ)
-    // 滑走路前方にある必要があるため、distは負の値（進入方向から見て手前）
-    // ただしATCの向きと数学座標の向きに注意が必要
-    // 簡易版: 閾値からの距離
     const distToThreshold = Math.sqrt(dx * dx + dy * dy);
 
-    // 距離が遠すぎる判定 (15NM以遠はキャプチャ不可)
+    // Too far to capture
     if (distToThreshold > 15) return false;
 
-    // 3. 高度チェック (4000ft以下、かつ3度パス以下であること)
+    // Altitude checks
     if (acAlt > 4000) return false;
-
-    // 3度パス (1NMあたり約318.44ft)
-    // 許容誤差を少し持たせる (+200ftくらいまでならキャプチャして修正させる？ ユーザー要望は「以下」)
     const glideSlopeAlt = distToThreshold * 318.44;
-    if (acAlt > glideSlopeAlt + 100) return false; // 厳密すぎると使いにくいので+100ftの猶予
-
-    // 4. ローカライザー（横ズレ）判定
-    // ベクトル(dx, dy)と滑走路進入方位のなす角を計算
-    const angleToThreshold = (Math.atan2(dy, dx) * 180) / Math.PI;
-    // ATC方位（北が0）に変換
-    let atcAngle = (450 - angleToThreshold) % 360;
-    // 滑走路進入方位（背後方向）との差をみる
-    const entryHeading = (this.heading + 180) % 360;
-    let angleDiff = Math.abs(atcAngle - entryHeading);
-    if (angleDiff > 180) angleDiff = 360 - angleDiff;
-
-    if (angleDiff > 5) return false; // 5度以上のコースズレはキャプチャ不可
+    if (acAlt > glideSlopeAlt + 100) return false;
 
     return true;
   }

@@ -62,5 +62,23 @@ export class MainMenu extends Scene {
     stage1Btn.on("pointerdown", () => {
       this.scene.start("Game", { scenarioId: "STAGE_1" });
     });
+
+    // Stage 2 Button
+    const stage2Btn = this.add
+      .text(512, 660, "Stage 2 (Rush Hour)", {
+        fontFamily: "Arial Black",
+        fontSize: 24,
+        color: "#ffffff",
+        backgroundColor: "#333333",
+        padding: { x: 20, y: 10 },
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    stage2Btn.on("pointerover", () => stage2Btn.setStyle({ color: "#ff0" }));
+    stage2Btn.on("pointerout", () => stage2Btn.setStyle({ color: "#fff" }));
+    stage2Btn.on("pointerdown", () => {
+      this.scene.start("Game", { scenarioId: "STAGE_2" });
+    });
   }
 }

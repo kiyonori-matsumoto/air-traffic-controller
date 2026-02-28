@@ -108,7 +108,7 @@ export class Game extends Scene {
     );
 
     // this.trafficManager.setRotationCorrection(this.magVarCorrection);
-    this.spawnManager = new SpawnManager(this.trafficManager);
+    this.spawnManager = new SpawnManager(this.trafficManager, this.airport);
     this.spawnManager.setMode("SCENARIO", this.scenarioId);
     this.commandSystem = new CommandSystem(this.airport);
 

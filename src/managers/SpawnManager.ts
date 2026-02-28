@@ -1,6 +1,8 @@
 import { TrafficManager } from "./TrafficManager";
 import { tutorialScenario } from "../data/scenarios/tutorial";
 import { stage1Scenario } from "../data/scenarios/stage1";
+import { stage2Scenario } from "../data/scenarios/stage2";
+
 export interface SpawnEvent {
   time: number; // Seconds since game start
   flightId: string;
@@ -12,6 +14,7 @@ export interface SpawnEvent {
   altitude: number;
   speed: number;
   startDistance?: number; // Distance from center
+  lateralOffset?: number; // Offset left (negative) or right (positive) of the centerline
   initialState?: "RADAR_CONTACT";
   x?: number; // Override X (NM)
   y?: number; // Override Y (NM)
@@ -65,8 +68,14 @@ export class SpawnManager {
     }, // From North
   ];
 
-  constructor(trafficManager: TrafficManager) {
+  private airport: import("../models/Airport").Airport;
+
+  constructor(
+    trafficManager: TrafficManager,
+    airport: import("../models/Airport").Airport,
+  ) {
     this.trafficManager = trafficManager;
+    this.airport = airport;
   }
 
   public setMode(mode: "SCENARIO" | "RANDOM", scenarioId?: string) {
@@ -121,11 +130,49 @@ export class SpawnManager {
       // else 0,0
     } else if (stream) {
       // ARRIVAL
-      // Calculate spawn position
       const dist = event.startDistance || 85;
-      const bearingRad = stream.bearing * (Math.PI / 180);
-      x = dist * Math.sin(bearingRad);
-      y = dist * Math.cos(bearingRad);
+
+      // Look up the target waypoint (e.g., AKSEL, AROSA)
+      const targetWp = this.airport.getWaypoint(stream.target);
+
+      if (targetWp) {
+        // We want the aircraft to spawn at a total distance of 'dist' (e.g., 85NM) from the AIRPORT CENTER,
+        // but along the vector that passes through the target waypoint.
+        // First, find distance of targetWp from center
+        const wpDistFromCenter = Math.sqrt(
+          targetWp.x * targetWp.x + targetWp.y * targetWp.y,
+        );
+
+        // The distance left to extend FROM the waypoint outwards
+        const extensionDist = dist - wpDistFromCenter;
+
+        const bearingRad = stream.bearing * (Math.PI / 180);
+
+        // Position = WP position + (Direction * remaining Distance)
+        if (extensionDist > 0) {
+          x = targetWp.x + extensionDist * Math.sin(bearingRad);
+          y = targetWp.y + extensionDist * Math.cos(bearingRad);
+        } else {
+          // Fallback if they wanted to spawn closer than the waypoint itself
+          x = targetWp.x + 10 * Math.sin(bearingRad);
+          y = targetWp.y + 10 * Math.cos(bearingRad);
+        }
+
+        // Apply Lateral Offset if provided (perpendicular to the bearing)
+        // bearingRad is the angle FROM waypoint TO spawn point (outwards)
+        // Adding Math.PI/2 (90 deg) gives the "Right" direction when looking INWARDS towards the airport
+        // Actually, looking INWARDS (heading = bearing + 180), Right is "bearingRad - 90 deg"
+        if (event.lateralOffset) {
+          const rightRad = bearingRad - Math.PI / 2;
+          x += event.lateralOffset * Math.sin(rightRad);
+          y += event.lateralOffset * Math.cos(rightRad);
+        }
+      } else {
+        // Fallback to airport center
+        const bearingRad = stream.bearing * (Math.PI / 180);
+        x = dist * Math.sin(bearingRad);
+        y = dist * Math.cos(bearingRad);
+      }
 
       heading = (stream.bearing + 180) % 360;
     } else {
@@ -208,6 +255,8 @@ export class SpawnManager {
       scenario = tutorialScenario;
     } else if (scenarioId === "STAGE_1") {
       scenario = stage1Scenario;
+    } else if (scenarioId === "STAGE_2") {
+      scenario = stage2Scenario;
     }
 
     if (scenario) {

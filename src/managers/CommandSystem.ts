@@ -144,7 +144,7 @@ export class CommandSystem {
   }
 
   private handleSpeed(
-    command: string,
+    _command: string,
     ac: Aircraft,
     result: CommandResult,
     buffers: LogBuffers,
@@ -271,28 +271,41 @@ export class CommandSystem {
     result: CommandResult,
     buffers: LogBuffers,
   ): boolean {
-    if (
-      command === "CLEARED ILS Z RWY34R" ||
-      command === "ILS Z 34R" ||
-      command === "C I Z 34R"
-    ) {
+    const isBaseCommand =
+      command.startsWith("CLEARED ILS Z RWY34R") ||
+      command.startsWith("ILS Z 34R") ||
+      command.startsWith("C I Z 34R");
+
+    if (isBaseCommand) {
       const approachName = "ILSZ34R";
       const route = this.airport.approaches[approachName];
-      if (route) {
-        const newPlan: any[] = [];
-        // First WP is usually IAF/IF. Use DF?
-        // Or if already on STAR, it connects?
-        // Let's safe-guard: First one DF, rest TF.
-        if (route.length > 0) {
-          const firstWp = this.airport.getWaypoint(route[0]);
+      if (!route) {
+        result.atcLog = "Approach route ILSZ34R not defined.";
+        return true;
+      }
+
+      // Check for VIA clause
+      const viaMatch = command.match(/VIA\s+([A-Z0-9]+)/);
+
+      if (viaMatch) {
+        // Pattern 1: Full Approach via Fix
+        const fixName = viaMatch[1];
+        const fixIdx = route.indexOf(fixName);
+
+        if (fixIdx !== -1) {
+          const newPlan: any[] = [];
+          // Direct to VIA fix
+          const firstWp = this.airport.getWaypoint(fixName);
           newPlan.push({
             type: "DF",
-            waypoint: route[0],
+            waypoint: fixName,
             altConstraint: firstWp?.z,
             zConstraint: firstWp?.zConstraint,
             speedLimit: firstWp?.speedLimit,
           });
-          for (let i = 1; i < route.length; i++) {
+
+          // Then sequential to the rest of the approach
+          for (let i = fixIdx + 1; i < route.length; i++) {
             const wpName = route[i];
             const wp = this.airport.getWaypoint(wpName);
             newPlan.push({
@@ -303,25 +316,38 @@ export class CommandSystem {
               altConstraint: wp?.z,
             });
           }
-        }
 
-        result.pendingUpdates.push(() => {
-          ac.autopilot.activateFlightPlan(newPlan, "APPROACH", "ILS Z 34R");
-          // Set MCP Altitude to first waypoint constraint (or reasonable value) to allow VNAV descent
-          if (newPlan.length > 0 && newPlan[0].altConstraint) {
-            ac.autopilot.mcpAltitude = newPlan[0].altConstraint;
-          } else {
-            ac.autopilot.mcpAltitude = 4000; // Default for IO Approach
-          }
-        });
-        const phrase = "cleared ILS Zulu Runway 34 Right approach";
-        const voicePhrase =
-          "cleared ILS Zulu Runway 34 Right approach. Proceed direct Cream.";
-        this.addLogs(buffers, phrase, voicePhrase, phrase);
-        result.handled = true;
-        return true;
+          result.pendingUpdates.push(() => {
+            ac.autopilot.activateFlightPlan(newPlan, "APPROACH", "ILS Z 34R");
+            ac.autopilot.approachArmed = true; // Arm it to capture final
+            if (newPlan.length > 0 && newPlan[0].altConstraint) {
+              ac.autopilot.mcpAltitude = newPlan[0].altConstraint;
+            } else {
+              ac.autopilot.mcpAltitude = 4000;
+            }
+          });
+
+          const phrase = `cleared ILS Zulu Runway 34 Right approach via ${fixName}`;
+          const voicePhrase = `cleared ILS Zulu Runway 34 Right approach. Proceed direct ${fixName}.`;
+          this.addLogs(buffers, phrase, voicePhrase, phrase);
+          result.handled = true;
+          return true;
+        } else {
+          result.atcLog = `${fixName} is not on the ILS Z 34R approach.`;
+          return true;
+        }
       } else {
-        result.atcLog = "Approach route ILSZ34R not defined.";
+        // Pattern 2: Vector To Final (No VIA)
+        result.pendingUpdates.push(() => {
+          // DO NOT override flight plan or lateral mode. Just arm the approach.
+          ac.autopilot.approachArmed = true;
+          // Ensure they start descending to intercept altitude
+          ac.autopilot.mcpAltitude = 4000;
+        });
+
+        const phrase = "cleared ILS Zulu Runway 34 Right approach";
+        this.addLogs(buffers, phrase, phrase, phrase);
+        result.handled = true;
         return true;
       }
     }
