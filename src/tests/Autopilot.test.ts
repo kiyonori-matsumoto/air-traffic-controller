@@ -289,6 +289,7 @@ describe("Autopilot Logic", () => {
       (mockRunway.isAligned as any).mockReturnValue(true);
 
       aircraft.state = "FLYING";
+      autopilot.approachArmed = true;
       autopilot.manageApproach([mockRunway]);
 
       expect(aircraft.state).toBe("LANDING");
@@ -335,6 +336,7 @@ describe("Autopilot Logic", () => {
       // Mock isAligned to true for this test
       (mockRunway.isAligned as any).mockReturnValue(true);
 
+      autopilot.approachArmed = true;
       const captured = (autopilot as any).manageApproach([mockRunway]);
 
       expect(captured).toBe(true);
@@ -344,6 +346,67 @@ describe("Autopilot Logic", () => {
       // Verify manageProfiles doesn't override
       (autopilot as any).manageProfiles(1);
       expect(aircraft.targetSpeed).toBe(140);
+    });
+  });
+
+  describe("Vectoring Downgrade Logic", () => {
+    it("should downgrade VNAV/FMS to ALT/MANUAL and freeze targets when vectored", () => {
+      // Setup managed mode with specific constraints
+      autopilot.activateFlightPlan(
+        [
+          {
+            type: "TF",
+            waypoint: "WPT1",
+            altConstraint: 6000,
+            zConstraint: "AT",
+            speedLimit: 210,
+          },
+        ],
+        "DESCENT",
+      );
+
+      // Simulate that aircraft calculations reached target speed and altitude
+      aircraft.targetAltitude = 6000;
+      aircraft.targetSpeed = 210;
+
+      // Underlying MCP targets that are NOT what FMS is currently targeting
+      autopilot.mcpAltitude = 10000;
+      autopilot.mcpSpeed = 250;
+
+      expect(autopilot.verticalMode).toBe("VNAV");
+      expect(autopilot.speedMode).toBe("FMS");
+
+      // Vector the aircraft
+      autopilot.setHeading(180);
+
+      expect(autopilot.lateralMode).toBe("HDG");
+      expect(autopilot.verticalMode).toBe("ALT");
+      expect(autopilot.speedMode).toBe("MANUAL");
+
+      // Target values should freeze at the last FMS/VNAV target
+      expect(autopilot.mcpAltitude).toBe(6000);
+      expect(autopilot.mcpSpeed).toBe(210);
+      expect(aircraft.targetAltitude).toBe(6000);
+      expect(aircraft.targetSpeed).toBe(210);
+    });
+
+    it("should not affect already manual modes when vectored", () => {
+      autopilot.setHeading(0); // Sets HDG mode
+      autopilot.setAltitude(8000); // Sets ALT mode with mcpAltitude
+      autopilot.setSpeed(220); // Sets MANUAL mode with mcpSpeed
+
+      aircraft.targetAltitude = 8000;
+      aircraft.targetSpeed = 220;
+
+      expect(autopilot.verticalMode).toBe("ALT");
+      expect(autopilot.speedMode).toBe("MANUAL");
+
+      autopilot.setHeading(90);
+
+      expect(autopilot.verticalMode).toBe("ALT");
+      expect(autopilot.speedMode).toBe("MANUAL");
+      expect(autopilot.mcpAltitude).toBe(8000);
+      expect(autopilot.mcpSpeed).toBe(220);
     });
   });
 });

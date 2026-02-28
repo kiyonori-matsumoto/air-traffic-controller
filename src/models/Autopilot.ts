@@ -451,6 +451,23 @@ export class Autopilot {
     this.aircraft.activeWaypoint = null;
     this.approachArmed = false; // Reset armed state on new heading
     this.bankPID.reset();
+
+    // When vectored off a route, downgrade vertical and speed modes to manual
+    // to prevent sudden acceleration or climb/descent to previous unmanaged MCP targets.
+    // Freeze current target altitude and speed as the new manual targets.
+    if (
+      this.verticalMode === "VNAV" ||
+      this.verticalMode === "VNAV_ALT" ||
+      this.verticalMode === "FLCH"
+    ) {
+      this.verticalMode = "ALT";
+      this.mcpAltitude = this.aircraft.targetAltitude; // Freeze at current FMS target
+    }
+
+    if (this.speedMode === "FMS") {
+      this.speedMode = "MANUAL";
+      this.mcpSpeed = this.aircraft.targetSpeed; // Freeze at current FMS target
+    }
   }
 
   public activateFlightPlan(
