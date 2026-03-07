@@ -20,15 +20,17 @@ export class VideoMap {
     const centerLon = airport.centerLon;
     // magVar unused, passing direct.
 
-    // GeoUtils logic: "theta = (magVar * Math.PI) / 180" where magVar is passed.
-    // In Airport.ts: "new Runway(..., 329.88 - this.magneticVariation)" -> Heading.
-    // In GeoUtils previously: "theta = magVar (negative) -> Rotation is Clockwise."
-    // "MagVar is -7.9 (West)." so passing -7.9 makes theta negative -> Clockwise.
-    // Correct.
-    // So pass airport.magneticVariation directly.
+    airport.airspace.sectors.forEach((sector) => {
+      // Create a closed polygon by appending the first point at the end
+      const points = [...sector.points, sector.points[0]];
+      this.lines.push({
+        type: "SECTOR",
+        points: points,
+      });
+    });
 
-    hanedaData.forEach((segment) => {
-      const points = segment.map((pt) => {
+    (hanedaData as any[]).forEach((segment: any) => {
+      const points = segment.map((pt: any) => {
         const pos = GeoUtils.latLngToNM(
           pt.lat,
           pt.lon,

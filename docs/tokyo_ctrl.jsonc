@@ -1,0 +1,185 @@
+{
+  "airspace_name": "Tokyo Approach Control Area",
+  "sectors": [
+    {
+      "sector_name": "Sector_North_13000",
+      "boundary_points": [6, 42, 47, 46, 6],
+      "upper_limit": "FL240",
+      "lower_limit": "13000",
+      "exclusion": "13000"
+    },
+    {
+      "sector_name": "Sector_North_Corner_10000",
+      "boundary_points": [47, 55, 46, 47],
+      "upper_limit": "FL240",
+      "lower_limit": "10000",
+      "exclusion": "10000"
+    },
+    {
+      "sector_name": "Sector_North_West_4000",
+      "boundary_points": [7, 6, 29, 28, 7],
+      "upper_limit": "FL240",
+      "lower_limit": "4000",
+      "exclusion": "4000"
+    },
+    {
+      "sector_name": "Sector_North_Center_4000",
+      "boundary_points": [29, 36, 31, 32, 28, 29],
+      "upper_limit": "FL240",
+      "lower_limit": "4000",
+      "exclusion": null
+    },
+    {
+      "sector_name": "Sector_RJAK_ARP_Area_3000",
+      "boundary_points": [28, 32, 31, 34, 33, 27, 28],
+      "upper_limit": "FL240",
+      "lower_limit": "3000",
+      "exclusion": null
+    },
+    {
+      "sector_name": "Sector_Inner_Box_2500",
+      "boundary_points": [31, 36, 35, 41, 34, 31],
+      "upper_limit": "FL240",
+      "lower_limit": "2500",
+      "exclusion": "2500"
+    },
+    {
+      "sector_name": "Sector_Inner_Box_1800",
+      "boundary_points": [34, 41, 43, 33, 34],
+      "upper_limit": "FL240",
+      "lower_limit": "1800",
+      "exclusion": "1800"
+    },
+    {
+      "sector_name": "Sector_Inner_Box_4000",
+      "boundary_points": [35, 45, 44, 43, 41, 35],
+      "upper_limit": "FL240",
+      "lower_limit": "4000",
+      "exclusion": null
+    },
+    {
+      "sector_name": "Sector_North_East_7000",
+      "boundary_points": [42, 54, 48, 49, 44, 45, 46, 47, 42],
+      "upper_limit": "FL240",
+      "lower_limit": "7000",
+      "exclusion": "7000"
+    },
+    {
+      "sector_name": "Sector_Far_North_East_8000",
+      "boundary_points": [54, 17, 39, 48, 54],
+      "upper_limit": "FL240",
+      "lower_limit": "8000",
+      "exclusion": "8000"
+    },
+    {
+      "sector_name": "Sector_East_6000",
+      "boundary_points": [39, 20, 21, 38, 39],
+      "upper_limit": "FL240",
+      "lower_limit": "6000",
+      "exclusion": null
+    },
+    {
+      "sector_name": "Sector_Far_East_5000",
+      "boundary_points": [39, 17, 18, 16, 19, 20, 39],
+      "upper_limit": "FL240",
+      "lower_limit": "5000",
+      "exclusion": null
+    },
+    {
+      "sector_name": "Sector_West_FL180",
+      "boundary_points": [56, 59, 50, 51, 57, 56],
+      "upper_limit": "FL240",
+      "lower_limit": "FL180",
+      "exclusion": "FL180"
+    },
+    {
+      "sector_name": "Sector_West_12000",
+      "boundary_points": [57, 51, 52, 58, 57],
+      "upper_limit": "FL240",
+      "lower_limit": "12000",
+      "exclusion": "12000"
+    },
+    {
+      "sector_name": "Sector_South_West_FL140",
+      "boundary_points": [58, 52, 53, 14, 15, 58],
+      "upper_limit": "FL240",
+      "lower_limit": "FL140",
+      "exclusion": "FL140"
+    },
+    {
+      "sector_name": "Sector_Inner_West_8000",
+      "boundary_points": [50, 8, 28, 32, 10, 52, 51, 50],
+      "upper_limit": "FL240",
+      "lower_limit": "8000",
+      "exclusion": "8000"
+    },
+    {
+      "sector_name": "Sector_Southern_FL230",
+      "boundary_points": [1, 2, 3, 4, 5, 1],
+      "upper_limit": "FL230",
+      "lower_limit": "Surface",
+      "exclusion": null
+    }
+  ],
+  "coordinate_registry": {
+    "1": { "latitude": { "deg": 34, "min": 32, "sec": 24, "dir": "N" }, "longitude": { "deg": 140, "min": 7, "sec": 24, "dir": "E" } }, // [cite: 90]
+    "2": { "latitude": { "deg": 34, "min": 23, "sec": 37, "dir": "N" }, "longitude": { "deg": 139, "min": 0, "sec": 33, "dir": "E" } }, // [cite: 90]
+    "3": { "latitude": { "deg": 34, "min": 11, "sec": 53, "dir": "N" }, "longitude": { "deg": 139, "min": 12, "sec": 55, "dir": "E" } }, // [cite: 90]
+    "4": { "latitude": { "deg": 34, "min": 11, "sec": 41, "dir": "N" }, "longitude": { "deg": 139, "min": 59, "sec": 54, "dir": "E" } }, // [cite: 91]
+    "5": { "latitude": { "deg": 34, "min": 16, "sec": 14, "dir": "N" }, "longitude": { "deg": 140, "min": 12, "sec": 35, "dir": "E" } }, // [cite: 91]
+    "6": { "latitude": { "deg": 36, "min": 34, "sec": 29, "dir": "N" }, "longitude": { "deg": 140, "min": 13, "sec": 17, "dir": "E" } }, // [cite: 91]
+    "7": { "latitude": { "deg": 36, "min": 25, "sec": 15, "dir": "N" }, "longitude": { "deg": 139, "min": 56, "sec": 33, "dir": "E" } }, // [cite: 91]
+    "8": { "latitude": { "deg": 35, "min": 59, "sec": 18, "dir": "N" }, "longitude": { "deg": 139, "min": 44, "sec": 24, "dir": "E" } }, // [cite: 91]
+    "9": { "latitude": { "deg": 35, "min": 53, "sec": 39, "dir": "N" }, "longitude": { "deg": 139, "min": 41, "sec": 46, "dir": "E" } }, // [cite: 91]
+    "10": { "latitude": { "deg": 35, "min": 33, "sec": 25, "dir": "N" }, "longitude": { "deg": 139, "min": 38, "sec": 40, "dir": "E" } }, // [cite: 91]
+    "11": { "latitude": { "deg": 35, "min": 11, "sec": 36, "dir": "N" }, "longitude": { "deg": 139, "min": 43, "sec": 10, "dir": "E" } }, // [cite: 91]
+    "12": { "latitude": { "deg": 35, "min": 0, "sec": 19, "dir": "N" }, "longitude": { "deg": 139, "min": 38, "sec": 18, "dir": "E" } }, // [cite: 91]
+    "13": { "latitude": { "deg": 34, "min": 58, "sec": 11, "dir": "N" }, "longitude": { "deg": 139, "min": 24, "sec": 43, "dir": "E" } }, // [cite: 92]
+    "14": { "latitude": { "deg": 34, "min": 56, "sec": 14, "dir": "N" }, "longitude": { "deg": 139, "min": 12, "sec": 25, "dir": "E" } }, // [cite: 93]
+    "15": { "latitude": { "deg": 34, "min": 54, "sec": 12, "dir": "N" }, "longitude": { "deg": 138, "min": 59, "sec": 49, "dir": "E" } }, // [cite: 94]
+    "16": { "latitude": { "deg": 34, "min": 48, "sec": 16, "dir": "N" }, "longitude": { "deg": 141, "min": 44, "sec": 17, "dir": "E" } }, // [cite: 95]
+    "17": { "latitude": { "deg": 36, "min": 5, "sec": 0, "dir": "N" }, "longitude": { "deg": 141, "min": 46, "sec": 4, "dir": "E" } }, // [cite: 100]
+    "18": { "latitude": { "deg": 36, "min": 4, "sec": 19, "dir": "N" }, "longitude": { "deg": 141, "min": 44, "sec": 9, "dir": "E" } }, // [cite: 90]
+    "19": { "latitude": { "deg": 35, "min": 56, "sec": 0, "dir": "N" }, "longitude": { "deg": 141, "min": 15, "sec": 34, "dir": "E" } }, // [cite: 90]
+    "20": { "latitude": { "deg": 35, "min": 56, "sec": 0, "dir": "N" }, "longitude": { "deg": 141, "min": 8, "sec": 41, "dir": "E" } }, // [cite: 90]
+    "21": { "latitude": { "deg": 35, "min": 56, "sec": 0, "dir": "N" }, "longitude": { "deg": 140, "min": 47, "sec": 46, "dir": "E" } }, // [cite: 91]
+    "22": { "latitude": { "deg": 35, "min": 56, "sec": 0, "dir": "N" }, "longitude": { "deg": 140, "min": 38, "sec": 28, "dir": "E" } }, // [cite: 91]
+    "23": { "latitude": { "deg": 35, "min": 56, "sec": 0, "dir": "N" }, "longitude": { "deg": 140, "min": 35, "sec": 35, "dir": "E" } }, // [cite: 91]
+    "24": { "latitude": { "deg": 35, "min": 56, "sec": 0, "dir": "N" }, "longitude": { "deg": 140, "min": 31, "sec": 54, "dir": "E" } }, // [cite: 91]
+    "25": { "latitude": { "deg": 35, "min": 56, "sec": 26, "dir": "N" }, "longitude": { "deg": 140, "min": 30, "sec": 2, "dir": "E" } }, // [cite: 91]
+    "26": { "latitude": { "deg": 35, "min": 59, "sec": 30, "dir": "N" }, "longitude": { "deg": 140, "min": 16, "sec": 51, "dir": "E" } }, // [cite: 91]
+    "27": { "latitude": { "deg": 36, "min": 0, "sec": 23, "dir": "N" }, "longitude": { "deg": 140, "min": 17, "sec": 23, "dir": "E" } }, // [cite: 91]
+    "28": { "latitude": { "deg": 36, "min": 6, "sec": 23, "dir": "N" }, "longitude": { "deg": 140, "min": 8, "sec": 24, "dir": "E" } }, // [cite: 91]
+    "29": { "latitude": { "deg": 36, "min": 13, "sec": 21, "dir": "N" }, "longitude": { "deg": 140, "min": 9, "sec": 30, "dir": "E" } }, // [cite: 91]
+    "30": { "latitude": { "deg": 35, "min": 57, "sec": 32, "dir": "N" }, "longitude": { "deg": 140, "min": 29, "sec": 39, "dir": "E" } }, // [cite: 92]
+    "31": { "latitude": { "deg": 36, "min": 7, "sec": 5, "dir": "N" }, "longitude": { "deg": 140, "min": 15, "sec": 14, "dir": "E" } }, // [cite: 93]
+    "32": { "latitude": { "deg": 36, "min": 7, "sec": 5, "dir": "N" }, "longitude": { "deg": 140, "min": 11, "sec": 34, "dir": "E" } }, // [cite: 94]
+    "33": { "latitude": { "deg": 36, "min": 4, "sec": 53, "dir": "N" }, "longitude": { "deg": 140, "min": 27, "sec": 3, "dir": "E" } }, // [cite: 95]
+    "34": { "latitude": { "deg": 36, "min": 6, "sec": 2, "dir": "N" }, "longitude": { "deg": 140, "min": 20, "sec": 56, "dir": "E" } }, // [cite: 100]
+    "35": { "latitude": { "deg": 36, "min": 10, "sec": 53, "dir": "N" }, "longitude": { "deg": 140, "min": 21, "sec": 47, "dir": "E" } }, // [cite: 90]
+    "36": { "latitude": { "deg": 36, "min": 12, "sec": 4, "dir": "N" }, "longitude": { "deg": 140, "min": 18, "sec": 53, "dir": "E" } }, // [cite: 90]
+    "37": { "latitude": { "deg": 36, "min": 4, "sec": 7, "dir": "N" }, "longitude": { "deg": 140, "min": 31, "sec": 12, "dir": "E" } }, // [cite: 90]
+    "38": { "latitude": { "deg": 36, "min": 2, "sec": 50, "dir": "N" }, "longitude": { "deg": 140, "min": 38, "sec": 3, "dir": "E" } }, // [cite: 91]
+    "39": { "latitude": { "deg": 36, "min": 5, "sec": 3, "dir": "N" }, "longitude": { "deg": 141, "min": 0, "sec": 17, "dir": "E" } }, // [cite: 91]
+    "40": { "latitude": { "deg": 36, "min": 5, "sec": 0, "dir": "N" }, "longitude": { "deg": 140, "min": 36, "sec": 0, "dir": "E" } }, // [cite: 91]
+    "41": { "latitude": { "deg": 36, "min": 8, "sec": 58, "dir": "N" }, "longitude": { "deg": 140, "min": 26, "sec": 26, "dir": "E" } }, // [cite: 91]
+    "42": { "latitude": { "deg": 36, "min": 37, "sec": 52, "dir": "N" }, "longitude": { "deg": 140, "min": 19, "sec": 37, "dir": "E" } }, // [cite: 91]
+    "43": { "latitude": { "deg": 36, "min": 11, "sec": 52, "dir": "N" }, "longitude": { "deg": 140, "min": 26, "sec": 23, "dir": "E" } }, // [cite: 91]
+    "44": { "latitude": { "deg": 36, "min": 16, "sec": 19, "dir": "N" }, "longitude": { "deg": 140, "min": 26, "sec": 19, "dir": "E" } }, // [cite: 91]
+    "45": { "latitude": { "deg": 36, "min": 16, "sec": 28, "dir": "N" }, "longitude": { "deg": 140, "min": 22, "sec": 45, "dir": "E" } }, // [cite: 91]
+    "46": { "latitude": { "deg": 36, "min": 35, "sec": 47, "dir": "N" }, "longitude": { "deg": 140, "min": 26, "sec": 6, "dir": "E" } }, // [cite: 91]
+    "47": { "latitude": { "deg": 36, "min": 36, "sec": 11, "dir": "N" }, "longitude": { "deg": 140, "min": 26, "sec": 10, "dir": "E" } }, // [cite: 96]
+    "48": { "latitude": { "deg": 36, "min": 19, "sec": 13, "dir": "N" }, "longitude": { "deg": 140, "min": 41, "sec": 25, "dir": "E" } }, // [cite: 97]
+    "49": { "latitude": { "deg": 36, "min": 16, "sec": 30, "dir": "N" }, "longitude": { "deg": 140, "min": 38, "sec": 49, "dir": "E" } }, // [cite: 98]
+    "50": { "latitude": { "deg": 35, "min": 52, "sec": 18, "dir": "N" }, "longitude": { "deg": 139, "min": 26, "sec": 8, "dir": "E" } }, // [cite: 99]
+    "51": { "latitude": { "deg": 35, "min": 47, "sec": 15, "dir": "N" }, "longitude": { "deg": 139, "min": 24, "sec": 11, "dir": "E" } }, // [cite: 100]
+    "52": { "latitude": { "deg": 35, "min": 23, "sec": 43, "dir": "N" }, "longitude": { "deg": 139, "min": 27, "sec": 49, "dir": "E" } }, // [cite: 103]
+    "53": { "latitude": { "deg": 35, "min": 13, "sec": 1, "dir": "N" }, "longitude": { "deg": 139, "min": 29, "sec": 26, "dir": "E" } }, // [cite: 104]
+    "54": { "latitude": { "deg": 36, "min": 29, "sec": 38, "dir": "N" }, "longitude": { "deg": 140, "min": 51, "sec": 26, "dir": "E" } }, // [cite: 105]
+    "55": { "latitude": { "deg": 36, "min": 35, "sec": 40, "dir": "N" }, "longitude": { "deg": 140, "min": 28, "sec": 12, "dir": "E" } }, // [cite: 106]
+    "56": { "latitude": { "deg": 35, "min": 56, "sec": 26, "dir": "N" }, "longitude": { "deg": 139, "min": 9, "sec": 39, "dir": "E" } }, // [cite: 107]
+    "57": { "latitude": { "deg": 35, "min": 43, "sec": 16, "dir": "N" }, "longitude": { "deg": 139, "min": 4, "sec": 33, "dir": "E" } }, // [cite: 107]
+    "58": { "latitude": { "deg": 35, "min": 21, "sec": 34, "dir": "N" }, "longitude": { "deg": 139, "min": 8, "sec": 12, "dir": "E" } }, // [cite: 107]
+    "59": { "latitude": { "deg": 36, "min": 2, "sec": 23, "dir": "N" }, "longitude": { "deg": 139, "min": 18, "sec": 42, "dir": "E" } }  // [cite: 108]
+  }
+}

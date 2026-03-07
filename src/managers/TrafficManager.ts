@@ -78,6 +78,25 @@ export class TrafficManager {
         return false;
       }
 
+      // Check Tokyo Airspace Entry for Arrivals
+      if (
+        ac.logic.origin !== "RJTT" &&
+        ac.logic.ownership === "HANDOFF_OFFERED" &&
+        !ac.logic.hasContactedControl
+      ) {
+        const inside = this.airport.airspace.isInside(
+          ac.logic.x,
+          ac.logic.y,
+          ac.logic.altitude,
+        );
+        if (inside) {
+          ac.logic.hasContactedControl = true;
+          if (this.onAircraftSpawned) {
+            this.onAircraftSpawned(ac.logic);
+          }
+        }
+      }
+
       // Simple distance check as backup
       const dist = Math.sqrt(ac.logic.x ** 2 + ac.logic.y ** 2);
       if (dist > 100) {
@@ -265,8 +284,21 @@ export class TrafficManager {
 
     this.uiManager.createStrip(ac);
 
-    if (this.onAircraftSpawned) {
-      this.onAircraftSpawned(ac);
+    // Initial contact is now handled dynamically in update() when entering airspace.
+    // We only call onAircraftSpawned immediately if it spawns already inside the airspace or is OWNED/departure.
+    if (ac.origin === "RJTT" || ac.ownership === "OWNED") {
+      if (this.onAircraftSpawned) {
+        this.onAircraftSpawned(ac);
+      }
+    } else {
+      // It's a HANDOFF_OFFERED arrival. Check if it spawned inside the airspace.
+      const inside = this.airport.airspace.isInside(ac.x, ac.y, ac.altitude);
+      if (inside) {
+        ac.hasContactedControl = true;
+        if (this.onAircraftSpawned) {
+          this.onAircraftSpawned(ac);
+        }
+      }
     }
   }
 

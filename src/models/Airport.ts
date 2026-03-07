@@ -1,4 +1,5 @@
 import { GeoUtils } from "../utils/GeoUtils";
+import { Airspace } from "./Airspace";
 
 export class Runway {
   public id: string;
@@ -35,10 +36,14 @@ export class Runway {
     const dx = x - rx;
     const dy = y - ry;
 
-    const bearing = (Math.atan2(-dy, -dx) * 180) / Math.PI; // Bearing from runway to aircraft
-    const bearingDiff = Math.abs(this.heading - bearing);
+    const mathBearing = (Math.atan2(-dy, -dx) * 180) / Math.PI; // -180 to 180
+    const bearing = (450 - mathBearing) % 360; // Convert to aviation bearing (0-360)
+
+    let bearingDiff = Math.abs(this.heading - bearing);
+    if (bearingDiff > 180) bearingDiff = 360 - bearingDiff;
+
     // Allow intercepting from within a 15-degree cone of the extended centerline
-    const isApproachPath = bearingDiff < 15 || bearingDiff > 345;
+    const isApproachPath = bearingDiff < 15;
 
     let headingDiff = Math.abs(this.heading - heading);
     if (headingDiff > 180) headingDiff = 360 - headingDiff;
@@ -110,6 +115,7 @@ export class Airport {
   public centerLat: number;
   public centerLon: number;
   public readonly magneticVariation: number = -7.9; // West 7 degrees (approx RJTT)
+  public airspace: Airspace;
 
   constructor(
     name: string,
@@ -119,6 +125,11 @@ export class Airport {
     this.name = name;
     this.centerLat = centerLat;
     this.centerLon = centerLon;
+    this.airspace = new Airspace(
+      this.centerLat,
+      this.centerLon,
+      this.magneticVariation,
+    );
 
     // Initialize Runways
     // MagVar = -7.9 (West). True Heading 329.88 -> Mag Heading 337.78

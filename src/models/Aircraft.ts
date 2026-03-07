@@ -31,6 +31,7 @@ export class Aircraft {
   state: "FLYING" | "LANDING" | "LANDED" = "FLYING";
   ownership: "OWNED" | "UNOWNED" | "HANDOFF_OFFERED" | "HANDOFF_COMPLETE" =
     "UNOWNED";
+  hasContactedControl: boolean = false;
 
   // 航跡（トレール）用履歴
   history: { x: number; y: number }[] = [];
